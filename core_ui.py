@@ -6,13 +6,13 @@ from seabreeze.spectrometers import Spectrometer
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from testing_utils import generate_dummy_spectra
 import laser_control
 import random
 import pandas as pd
 import numpy as np
 import threading
 import time
+from testing_utils import generate_dummy_spectra
 
 
 # laser = laser_control.Laser()
@@ -228,6 +228,9 @@ def arm_laser():
 
 def fire_laser():
 	laser.fire_laser()
+	if sync_fire_var == 1:
+
+
 
 def emergency_stop():
 	laser.emergency_stop()

@@ -7,7 +7,7 @@ import threading as thread
 class Laser:
     def __init__(self, pulseMode = 0, repRate = 10, burstCount = 10000, diodeCurrent = .1, energyMode = 0, pulseWidth = 10, diodeTrigger = 0):
         self.__ser = serial.Serial()
-        self.pulseMode = pulseMode
+        self.pulseMode = pulseMode # NOTE: Pulse mode 0 = continuous is actually implemented as 2 = burst mode in this code.
         self.repRate = repRate
         self.burstCount = burstCount
         self.diodeCurrent = diodeCurrent
@@ -93,17 +93,22 @@ class Laser:
                 t.start()
                 self.__startup = False
 
+    # Added: changed lock structure
     def fire_laser(self):
         with self.__lock:
             self.__send_command(b';LA:FL 1<CR>')
             self.__send_command(b';LA:SS?<CR>')
-            if self.__ser.readline() != b'3075<CR>':
+            response = self.__ser.readline()
+
+        if response != b'3075<CR>':
+            with self.__lock:
                 self.__send_command(b';LA:FL 0<CR>')  # aborts if laser fails to fire
-                raise RuntimeError('Laser Failed to Fire')
-            else:
-                if self.burstDuration >= 2:
-                    self.__kicker_control = True
-                time.sleep(self.burstDuration)
+            raise RuntimeError('Laser Failed to Fire')
+        else:
+            if self.burstDuration >= 2:
+                self.__kicker_control = True
+            time.sleep(self.burstDuration)
+            with self.__lock:
                 self.__send_command(b';LA:FL 0<CR>')
 
     def get_status(self):
@@ -152,8 +157,7 @@ class Laser:
 
     # Added: emergency stop
     def emergency_stop(self):
-        with self.__lock:
-            self.__send_command(b';LA:FL 0<CR>')
+        self.__send_command(b';LA:FL 0<CR>')
 
     def arm(self):
         with self.__lock:
@@ -165,17 +169,17 @@ class Laser:
 
     def update_settings(self):
         # cmd format, ignore brackets => ;[Address]:[Command String][Parameters]<CR>
-        with self.__lock:
-            cmd_strings = list()
-            cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
-            cmd_strings.append(';LA:RR ' + str(self.repRate) + '<CR>')
-            cmd_strings.append(';LA:BC ' + str(self.pulseMode) + '<CR>')
-            cmd_strings.append(';LA:DC ' + str(self.diodeCurrent) + '<CR>')
-            cmd_strings.append(';LA:EM ' + str(self.energyMode) + '<CR>')
-            cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
-            cmd_strings.append(';LA:DW ' + str(self.pulseWidth) + '<CR>')
-            cmd_strings.append(';LA:DT ' + str(self.pulseMode) + '<CR>')
+        cmd_strings = list()
+        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
+        cmd_strings.append(';LA:RR ' + str(self.repRate) + '<CR>')
+        cmd_strings.append(';LA:BC ' + str(self.pulseMode) + '<CR>')
+        cmd_strings.append(';LA:DC ' + str(self.diodeCurrent) + '<CR>')
+        cmd_strings.append(';LA:EM ' + str(self.energyMode) + '<CR>')
+        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
+        cmd_strings.append(';LA:DW ' + str(self.pulseWidth) + '<CR>')
+        cmd_strings.append(';LA:DT ' + str(self.pulseMode) + '<CR>')
 
+        with self.__lock:
             for i in cmd_strings:
                 self.__send_command(i.encode('latin-1'))
 
