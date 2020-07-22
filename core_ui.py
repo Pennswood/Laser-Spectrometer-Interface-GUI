@@ -123,7 +123,7 @@ def update_plot():  # take a fresh sample from source
 			spectra_plot.set_title('Observed Emission Spectra')
 			spectra_plot.plot(emission_data.iloc[0:, 0], emission_data.iloc[0:, 1])
 			canvas.draw()
-	else:  # todo, sync laser and second sample
+	else:
 		spec.trigger_mode(trigger_mode)  # set trigger mode
 		spec.integration_time_micros(int_time)  # set integration_time
 		# spec.tec_set_enable(dark_count_var.get())
@@ -227,8 +227,11 @@ def arm_laser():
 
 
 def fire_laser():
-	laser.fire_laser()
 	if sync_fire_var == 1:
+		threading.Thread(target=update_plot)
+	time.sleep(.001)
+	laser.fire_laser()
+
 
 
 
