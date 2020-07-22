@@ -16,5 +16,9 @@ To install the libraries below, just run: `pip install -r requirements.txt`
 
 `pyusb`: version 1.0.2 or higher
 
+# Usage
+To open up the control UI, run: 
+`python3 core_ui.py`
+
 # Sources
 Code taken from Github user MGPSU's seabreeze demo laser-interface branch with edits to connect the laser GUI frontend with backend operations to operate the laser.
