@@ -126,11 +126,9 @@ def update_plot():  # take a fresh sample from source
 	else:
 		spec.trigger_mode(trigger_mode)  # set trigger mode
 		spec.integration_time_micros(int_time)  # set integration_time
-		# spec.tec_set_enable(dark_count_var.get())
 		emission_data = \
-			pd.DataFrame(data=np.asarray([spec.wavelengths(), spec.intensities()]).transpose(),
+			pd.DataFrame(data=np.asarray([spec.wavelengths(), spec.intensities(correct_dark_counts = (dark_count_var == 1))]).transpose(),
 						 columns=['Wavelength [nm]', 'Intensity'])
-			# emission_data -= dark_count_data
 		# filter data from under 300nm
 		emission_data = emission_data[emission_data > 300]
 		# update plot
