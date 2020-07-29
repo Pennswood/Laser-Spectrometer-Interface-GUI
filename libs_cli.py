@@ -22,7 +22,7 @@ def dump_settings_register(spec):
     for i in (b'\x00', b'\x04', b'\x08', b'\x0C', b'\x10', b'\x14', b'\x18', b'\x28', b'\x2C', b'\x38', b'\x3C', b'\x40', b'\x48', b'\x50', b'\x54', b'\x74', b'\x78', b'\x7C', b'\x80'):
         spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">ss",b'\x6B',i),'primary_out')
         output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=3)
-        print(output)
+        print(str(i) + "\t" + str(output[1:]))
         
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
@@ -76,6 +76,13 @@ def set_integration_time(spec, time):
     print("*** Integration time set to " + str(time) + " microseconds.")
     return True
     
+def check_spectrometer(spec):
+    """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
+    if spec == None:
+        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        return True
+    return False
+    
 def command_loop():
     global running, spectrometer, laser
     while running:
@@ -85,9 +92,13 @@ def command_loop():
             give_help()
             
         elif parts[0] == "dump_spectrometer_registers":
+            if check_spectrometer(spectrometer):
+                continue
             dump_settings_register(spectrometer)
 
         elif parts[0] == "set_trigger_delay":
+            if check_spectrometer(spectrometer):
+                continue
             if len(parts) < 2:
                 print("!!! Invalid command: Set Trigger Delay command expects at least 1 argument.")
                 continue
@@ -99,6 +110,8 @@ def command_loop():
                 continue
 
         elif parts[0] == "set_integration_time":
+            if check_spectrometer(spectrometer):
+                continue
             if len(parts) < 2:
                 print("!!! Invalid command: Set Integration Time command expects at least 1 argument.")
                 continue
@@ -113,6 +126,8 @@ def command_loop():
                 continue
 
         elif parts[0] == "set_sample_mode":
+            if check_spectrometer(spectrometer):
+                continue
             if len(parts) < 2:
                 print("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
                 continue
@@ -152,6 +167,8 @@ def give_help():
     print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is optional and autodetection will be used instead.")
     print("\tset_sample_mode MODE\t\t\tSet the trigger mode of the spectrometer, possible values are: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
     print("\tset_trigger_delay TIME\t\tSet the trigger delay for the spectrometer. TIME is in microseconds.")
+    print("\tset_integration_time TIME\t\tSet the Integration Time/Period for the spectrometer. TIME is in microseconds.")
+    print("\tdump_spectrometer_registers\t\tRequests and displays the settings register on the spectrometer.")
     print("\nLASER")
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
 
