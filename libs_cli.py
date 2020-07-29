@@ -8,6 +8,8 @@ import laser_control
 
 # Created using Notepad++. I have no regrets. And notice that it works. :)
 
+seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
+
 running = True
 spectrometer = None
 laser = None
@@ -18,16 +20,38 @@ def set_trigger_delay(d):
 def auto_connect_spectrometer(spec):
     """Use seabreeze to autodetect and connect to a spectrometer. Returns True on success, False otherwise."""
     if seabreeze.spectrometers.list_devices():
-		spec = seabreeze.spectrometers.Spectrometer.from_first_available()
+        spec = seabreeze.spectrometers.Spectrometer.from_first_available()
         print("*** Found spectrometer, serial number: " + spec.serial_number)
         return True
-	else:
-		print("!!! No spectrometer autodetected!")
+    else:
+        print("!!! No spectrometer autodetected!")
         return False
         
 def connect_spectrometer(spec, device):
     """Explicitly connect to the spectrometer at the given device file. Returns True on success, False otherwise."""
 
+
+def set_sample_mode(spec, mode):
+    """Sets the spectrometer sampling trigger to the specified mode."""
+    i = None
+    if mode == "NORMAL":
+        i = 0
+    elif mode == "SOFTWARE":
+        i = 1
+    elif mode == "EXT_LEVEL":
+        i = 2
+    elif mode == "EXT_SYNC":
+        i = 3
+    elif mode == "EXT_EDGE":
+        i = 4
+    try:
+        spec.trigger_mode(i)
+        print("*** Spectrometer trigger mode set to " + mode + " (" + str(i) + ")")
+        return True
+    except:
+        print("!!! Spectrometer does not support mode number " + str(i) + " (" + mode + ")!")
+        return False
+    
 def command_loop():
     global running, spectrometer, laser
     while running:
@@ -45,6 +69,17 @@ def command_loop():
                 print("!!! Invalid argument: Set Trigger Delay command expected an integer.")
                 continue
             set_trigger_delay(t)
+        elif parts[0] == "set_sample_mode":
+            if len(parts) < 2:
+                print("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
+                continue
+            
+            if parts[1] == "NORMAL" or parts[1] == "SOFTWARE" or parts[1] == "EXT_LEVEL" or parts[1] == "EXT_SYNC" or parts[1] == "EXT_EDGE":
+                set_sample_mode(spectrometer, parts[1])
+            else:
+                print("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+                continue
+            set_trigger_delay(t)
         elif parts[0] == "connect_spectrometer":
             if len(parts) == 1:
                 auto_connect_spectrometer(spectrometer)
@@ -55,6 +90,8 @@ def command_loop():
         elif parts[0] == "ping_spectrometer":
             print("Being implemented")
         elif parts[0] == "exit" or parts[0] == "quit":
+            if spectrometer:
+                spectrometer.close()
             running = False
         else:
             print("!!! Invalid command. Enter the 'help' command for usage information")
@@ -67,6 +104,7 @@ def give_help():
     print("\texit OR quit\t\t\tExit the program.")
     print("\nSPECTROMETER")
     print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is optional and autodetection will be used instead.")
+    print("\tset_sample_mode MODE\t\t\tSet the trigger mode of the spectrometer, possible values are: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
     print("\tset_td TIME\t\t\tSet the trigger delay for the spectrometer. TIME is in microseconds.")
     print("\nLASER")
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
