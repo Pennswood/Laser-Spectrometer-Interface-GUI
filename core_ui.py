@@ -12,6 +12,11 @@ import pandas as pd
 import numpy as np
 import threading
 import time
+import interface_config
+if interface_config.ON_BBB:
+	import Adafruit_BBIO.GPIO as GPIO # Adafruit library for safe GPIO control
+else:
+	from debug import DummyGPIO as GPIO
 from testing_utils import generate_dummy_spectra
 
 
@@ -123,11 +128,13 @@ def update_plot():  # take a fresh sample from source
 			spectra_plot.set_title('Observed Emission Spectra')
 			spectra_plot.plot(emission_data.iloc[0:, 0], emission_data.iloc[0:, 1])
 			canvas.draw()
+
+
 	else:
 		spec.trigger_mode(trigger_mode)  # set trigger mode
 		spec.integration_time_micros(int_time)  # set integration_time
 		emission_data = \
-			pd.DataFrame(data=np.asarray([spec.wavelengths(), spec.intensities(correct_dark_counts = (dark_count_var == 1))]).transpose(),
+			pd.DataFrame(data=np.asarray([spec.wavelengths(), spec.intensities(correct_dark_counts = (dark_count_var.get() == 1))]).transpose(),
 						 columns=['Wavelength [nm]', 'Intensity'])
 		# filter data from under 300nm
 		emission_data = emission_data[emission_data > 300]
@@ -189,6 +196,19 @@ def export_csv():
 
 
 # Laser code  __________________________________________________________________________________________________________
+
+laser_on = False
+def laser_switch():
+	global laser_on
+	if not laser_on:
+		GPIO.output(interface_config.Laser_GPIO_pin, GPIO.LOW)  # set pin LOW to disable 48V converter, and thus the laser
+		laser_onoff_switch['text'] = "Turn on laser"
+	if laser_on:
+		GPIO.output(interface_config.Laser_GPIO_pin, GPIO.HIGH)  # set pin LOW to disable 48V converter, and thus the laser
+		laser_onoff_switch['text'] = "Turn off laser"
+	laser_on = not laser_on
+
+
 def editConstants():
 	pulseMode = 0
 	if pulse_mode.get() == "Continuous":
@@ -225,7 +245,7 @@ def arm_laser():
 
 
 def fire_laser():
-	if sync_fire_var == 1:
+	if sync_fire_var.get() == 1:
 		threading.Thread(target=update_plot)
 	time.sleep(.001)
 	laser.fire_laser()
@@ -360,11 +380,14 @@ laser_status.grid(row=12, column=6, sticky="NSEW")
 edit_constants = tk.Button(text = "Edit constants", command = editConstants)
 edit_constants.grid(row=13, column=5, columnspan=2, rowspan=7, sticky="NSEW")
 
+laser_onoff_switch = tk.Button(text='Turn on laser', bg='red', command = laser_switch)
+laser_onoff_switch.grid(row=11, column=7, columnspan=2, rowspan=2, sticky="NSEW")
+
 emergency_stop_control = tk.Button(text='Stop fire', bg='red', command = emergency_stop)
-emergency_stop_control.grid(row=11, column=7, columnspan=2, rowspan=7, sticky="NSEW")
+emergency_stop_control.grid(row=13, column=7, columnspan=2, rowspan=1, sticky="NSEW")
 
 fire_control = tk.Button(text='Fire', bg='red', command = fire_laser)
-fire_control.grid(row=13, column=7, columnspan=2, rowspan=7, sticky="NSEW")
+fire_control.grid(row=14, column=7, columnspan=2, rowspan=1, sticky="NSEW")
 
 tk.Label(root, text="Laser Status", relief=tk.FLAT).grid(row=0, column=7, columnspan=2, sticky="NSEW")
 
