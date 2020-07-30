@@ -58,7 +58,7 @@ class Laser:
         """Queries for status every second in order to kick the laser's WDT on shots >= 2s"""
         while True:
             if self.__kicker_control:
-                self.__ser.write(b';LA:SS?<CR>')
+                self.__ser.write(b';LA:SS?\x0D')
             time.sleep(1)
 
     def __send_command(self, cmd):
@@ -143,20 +143,20 @@ class Laser:
             Sends commands to laser to have it fire
         """
         with self.__lock:
-            self.__send_command(b';LA:FL 1<CR>')
-            self.__send_command(b';LA:SS?<CR>')
+            self.__send_command(b';LA:FL 1\x0D')
+            self.__send_command(b';LA:SS?\x0D')
             response = self.__ser.readline()
 
-        if response != b'3075<CR>':
+        if response != b'3075\x0D':
             with self.__lock:
-                self.__send_command(b';LA:FL 0<CR>')  # aborts if laser fails to fire
+                self.__send_command(b';LA:FL 0\x0D')  # aborts if laser fails to fire
             raise RuntimeError('Laser Failed to Fire')
         else:
             if self.burstDuration >= 2:
                 self.__kicker_control = True
             time.sleep(self.burstDuration)
             with self.__lock:
-                self.__send_command(b';LA:FL 0<CR>')
+                self.__send_command(b';LA:FL 0\x0D')
 
     def get_status(self):
         """
@@ -170,7 +170,7 @@ class Laser:
                 2^3 = diode external trigger, 2^1 = laser active, 2^0 = laser enabled)
         """
         with self.__lock:
-            self.__send_command(b';LA:SS?<CR>')
+            self.__send_command(b';LA:SS?\x0D')
             return self.__ser.read()
 
     def check_armed(self):
@@ -182,7 +182,7 @@ class Laser:
             the lasr is armed
         """
         with self.__lock:
-            self.__send_command(b';LA:EN?<CR>')
+            self.__send_command(b';LA:EN?\x0D')
             # Added: new code
             serial_read = self.__ser.read()[:-4]
             if serial_read == b"0":
@@ -202,7 +202,7 @@ class Laser:
             Returns the float value of the FET temperature in bytes string.
         """
         with self.__lock:
-            self.__send_command(b';LA:FT?<CR>')
+            self.__send_command(b';LA:FT?\x0D')
             serial_read = self.__ser.read()
             return serial_read[:-4]
 
@@ -217,7 +217,7 @@ class Laser:
             Returns the float value of the resonator temperature in bytes string.
         """
         with self.__lock:
-            self.__send_command(b';LA:TR?<CR>')
+            self.__send_command(b';LA:TR?\x0D')
             serial_read = self.__ser.read()
             return serial_read[:-4]
 
@@ -232,7 +232,7 @@ class Laser:
             Returns the float value of the FET voltage in bytes string.
         """
         with self.__lock:
-            self.__send_command(b';LA:FV?<CR>')
+            self.__send_command(b';LA:FV?\x0D')
             serial_read = self.__ser.read()
             return serial_read[:-4]
 
@@ -246,41 +246,41 @@ class Laser:
             Returns the float value of the diode current in bytes string.
         """
         with self.__lock:
-            self.__send_command(b';LA:IM?<CR>')
+            self.__send_command(b';LA:IM?\x0D')
             serial_read = self.__ser.read()
             return serial_read[:-4]
 
     # Added: emergency stop
     def emergency_stop(self):
         """Immediately sends command to laser to stop firing (no lock)"""
-        self.__send_command(b';LA:FL 0<CR>')
+        self.__send_command(b';LA:FL 0\x0D')
 
     def arm(self):
         """Sends command to laser to arm"""
         with self.__lock:
-            self.__send_command(b';LA:EN 1<CR>')
+            self.__send_command(b';LA:EN 1\x0D')
 
     def disarm(self):
         """Sends command to laser to disarm"""
         with self.__lock:
-            self.__send_command(b';LA:EN 0<CR>')
+            self.__send_command(b';LA:EN 0\x0D')
 
     def update_settings(self):
-        # cmd format, ignore brackets => ;[Address]:[Command String][Parameters]<CR>
+        # cmd format, ignore brackets => ;[Address]:[Command String][Parameters]\x0D
         """Updates laser settings"""
         cmd_strings = list()
-        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
-        cmd_strings.append(';LA:RR ' + str(self.repRate) + '<CR>')
-        cmd_strings.append(';LA:BC ' + str(self.pulseMode) + '<CR>')
-        cmd_strings.append(';LA:DC ' + str(self.diodeCurrent) + '<CR>')
-        cmd_strings.append(';LA:EM ' + str(self.energyMode) + '<CR>')
-        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '<CR>')
-        cmd_strings.append(';LA:DW ' + str(self.pulseWidth) + '<CR>')
-        cmd_strings.append(';LA:DT ' + str(self.pulseMode) + '<CR>')
+        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '\x0D')
+        cmd_strings.append(';LA:RR ' + str(self.repRate) + '\x0D')
+        cmd_strings.append(';LA:BC ' + str(self.pulseMode) + '\x0D')
+        cmd_strings.append(';LA:DC ' + str(self.diodeCurrent) + '\x0D')
+        cmd_strings.append(';LA:EM ' + str(self.energyMode) + '\x0D')
+        cmd_strings.append(';LA:PM ' + str(self.pulseMode) + '\x0D')
+        cmd_strings.append(';LA:DW ' + str(self.pulseWidth) + '\x0D')
+        cmd_strings.append(';LA:DT ' + str(self.pulseMode) + '\x0D')
 
         with self.__lock:
             for i in cmd_strings:
-                self.__send_command(i.encode('latin-1'))
+                self.__send_command(i.encode('ascii')) # DO NOT CHANGE THIS. The laser specified ASCII codes, and if you pass in a binary value that does not encode to binary then you are doing something else wrong anyways.
 
 
 def list_available_ports():
