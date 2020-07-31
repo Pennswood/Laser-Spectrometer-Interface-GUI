@@ -1,0 +1,6 @@
+[submodule "OASIS-Laser-Testing"]
+	path = OASIS-Laser-Testing
+	url = https://github.com/nschaffin/OASIS-Laser-Testing.git
+[submodule "OASIS-Laser"]
+	path = OASIS-Laser
+	url = https://github.com/nschaffin/OASIS-Laser.git
