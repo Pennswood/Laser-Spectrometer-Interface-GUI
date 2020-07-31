@@ -184,7 +184,7 @@ class Laser:
         with self.__lock:
             self.__send_command(b';LA:EN?\x0D')
             # Added: new code
-            serial_read = self.__ser.read()[:-4]
+            serial_read = self.__ser.read()[:-1]
             if serial_read == b"0":
                 return False
             elif serial_read == b"1":
@@ -204,7 +204,7 @@ class Laser:
         with self.__lock:
             self.__send_command(b';LA:FT?\x0D')
             serial_read = self.__ser.read()
-            return serial_read[:-4]
+            return serial_read[:-1]
 
     # Added: Resonator temperature
     def resonator_temp_check(self):
@@ -219,7 +219,7 @@ class Laser:
         with self.__lock:
             self.__send_command(b';LA:TR?\x0D')
             serial_read = self.__ser.read()
-            return serial_read[:-4]
+            return serial_read[:-1]
 
     # Added: FET voltage
     def fet_voltage_check(self):
@@ -234,7 +234,7 @@ class Laser:
         with self.__lock:
             self.__send_command(b';LA:FV?\x0D')
             serial_read = self.__ser.read()
-            return serial_read[:-4]
+            return serial_read[:-1]
 
     def diode_current_check(self):
         """
@@ -248,7 +248,7 @@ class Laser:
         with self.__lock:
             self.__send_command(b';LA:IM?\x0D')
             serial_read = self.__ser.read()
-            return serial_read[:-4]
+            return serial_read[:-1]
 
     # Added: emergency stop
     def emergency_stop(self):
