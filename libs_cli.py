@@ -1,29 +1,51 @@
 #!/usr/bin/python3
+"""
+libs_cli.py
+
+This is a command line interface to run a minimal LIBS test using an OceanOptics FLAMT-T spectrometer and a 1064nm MicroJewel laser. This code is designed to be
+run on a BeagleBone Black.
+
+"""
 import struct
 from argparse import ArgumentParser
 
 import seabreeze
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
+#import Adafruit_BBIO.GPIO as GPIO
 import laser_control
 
 # Created using Notepad++. I have no regrets. And notice that it works. :)
 
 seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
 
-
-
 running = True
 spectrometer = None
 laser = None
+use_external_trigger = False
+external_trigger_pin = None
+
+def check_spectrometer(spec):
+    """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
+    if spec == None:
+        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        return True
+    return False
+    
+def check_laser(laser):
+    """Helper function that prints an error message if the laser has not been connected yet. Returns True if the laser is NOT connected."""
+    if laser == None:
+        print("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
+        return True
+    return False
 
 def dump_settings_register(spec):
-    print("... Dumping settings register...")
+    print("... Dumping settings register:")
     for i in (b'\x00', b'\x04', b'\x08', b'\x0C', b'\x10', b'\x14', b'\x18', b'\x28', b'\x2C', b'\x38', b'\x3C', b'\x40', b'\x48', b'\x50', b'\x54', b'\x74', b'\x78', b'\x7C', b'\x80'):
         spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">ss",b'\x6B',i),'primary_out')
         output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=3)
         print(str(i) + "\t" + str(output[1:]))
-        
+
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
     t_nano_seconds = t * 1000 #convert micro->nano seconds
@@ -31,6 +53,9 @@ def set_trigger_delay(spec, t):
     data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
     print(data)
     spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
+    
+def set_external_trigger_pin(pin):
+    """Sets the GPIO pin to use for external triggering."""
 
 def auto_connect_spectrometer():
     """Use seabreeze to autodetect and connect to a spectrometer. Returns a Spectrometer object on success, None otherwise"""
@@ -40,7 +65,7 @@ def auto_connect_spectrometer():
         return spec
     else:
         print("!!! No spectrometer autodetected!")
-        
+
 #TODO: Implement the below function, currently only autodetection works.
 def connect_spectrometer(device):
     """Explicitly connect to the spectrometer at the given device file. Returns a Spectrometer on success, None otherwise."""
@@ -69,20 +94,13 @@ def set_sample_mode(spec, mode):
         print("!!! " + str(e))
         print("!!! Spectrometer does not support mode number " + str(i) + " (" + mode + ")!")
         return False
-        
+
 def set_integration_time(spec, time):
     """Sets the integration time of the spectrometer. Returns True on success, False otherwise."""
     spec.integration_time_micros(time)
     print("*** Integration time set to " + str(time) + " microseconds.")
     return True
-    
-def check_spectrometer(spec):
-    """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
-    if spec == None:
-        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
-        return True
-    return False
-    
+
 def command_loop():
     global running, spectrometer, laser
     while running:
@@ -90,7 +108,7 @@ def command_loop():
         parts = c.split() # split the command up into the command and any arguments
         if parts[0] == "help": # check to see what command we were given
             give_help()
-            
+
         elif parts[0] == "dump_spectrometer_registers":
             if check_spectrometer(spectrometer):
                 continue
@@ -131,7 +149,7 @@ def command_loop():
             if len(parts) < 2:
                 print("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
                 continue
-            
+
             if parts[1] == "NORMAL" or parts[1] == "SOFTWARE" or parts[1] == "EXT_LEVEL" or parts[1] == "EXT_SYNC" or parts[1] == "EXT_EDGE":
                 set_sample_mode(spectrometer, parts[1])
             else:
@@ -147,16 +165,55 @@ def command_loop():
         elif parts[0] == "connect_laser":
             print("Being implemented") #TODO
             
-        elif parts[0] == "ping_spectrometer":
+        elif parts[0] == "arm_laser":
+            if check_laser(laser):
+                continue
+            laser.arm()
+
+        elif parts[0] == "disarm_laser":
+            if check_laser(laser):
+                continue
+            laser.disarm()
+
+        elif parts[0] == "laser_status":
             print("Being implemented") #TODO
+
+        elif parts[0] == "fire_laser":
+            if check_laser(laser):
+                continue
+            print("Being implemented") #TODO
+
+        elif parts[0] == "set_laser_rep_rate": # TODO: Add check to see if this is within the repetition rate.
+            if check_laser(laser):
+                continue
             
+            if len(parts) < 2:
+                print("!!! Set Laser Rep Rate expects an integer argument!")
+                continue
+            try:
+                rate = int(parts[1])
+            except ValueError:
+                print("!!! Set Laser Rep Rate expects an integer argument! You did not enter an integer.")
+                continue
+                
+        elif parts[0] == "get_laser_fet_temp":
+            if check_laser(laser)
+                continue
+            t = laser.fet_temp_check() # TODO: This returns a bytes object, this might be ASCII or a float? Need to do testing.
+            print("*** Laser FET temperature: " + str(t))
+
+        elif parts[0] == "do_sample":
+            if check_laser(laser) or check_spectrometer(spectrometer):
+                continue
+
+            print("Being implemented") #TODO
+
         elif parts[0] == "exit" or parts[0] == "quit":
             if spectrometer:
                 spectrometer.close()
             running = False
         else:
             print("!!! Invalid command. Enter the 'help' command for usage information")
-            
 
 def give_help():
     """Outputs a list of commands to the user for use in interactive mode."""
