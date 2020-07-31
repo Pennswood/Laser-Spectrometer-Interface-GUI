@@ -81,10 +81,8 @@ def set_sample_mode(spec, mode):
         i = 1
     elif mode == "EXT_LEVEL":
         i = 2
-    elif mode == "EXT_SYNC":
+    elif mode == "EXT_EDGE":
         i = 3
-    elif mode == "EXT_EDGE": #BUG: Currently errors out on this triggering type. Again, the datasheet is crap when it comes to the trigger modes.
-        i = 4
 
     try:
         spec.trigger_mode(i)
@@ -197,7 +195,7 @@ def command_loop():
                 continue
                 
         elif parts[0] == "get_laser_fet_temp":
-            if check_laser(laser)
+            if check_laser(laser):
                 continue
             t = laser.fet_temp_check() # TODO: This returns a bytes object, this might be ASCII or a float? Need to do testing.
             print("*** Laser FET temperature: " + str(t))
