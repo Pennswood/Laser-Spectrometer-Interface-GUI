@@ -230,7 +230,7 @@ def command_loop():
         else:
             print("!!! Invalid command. Enter the 'help' command for usage information")
 
-COMMAND_LIST = ["do_sample", "connect_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer"]
+COMMAND_LIST = ["help", "exit", "quit", "do_sample", "dump_spectrometer_registers", "connect_laser", "arm_laser", "disarm_laser", "laser_status", "fire_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer"]
 
 # Taken from: https://stackoverflow.com/questions/5637124/tab-completion-in-pythons-raw-input
 def tab_completer(text, state):
