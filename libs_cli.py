@@ -15,7 +15,7 @@ import seabreeze
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 #import Adafruit_BBIO.GPIO as GPIO
-from OASIS-Laser import Laser
+from oasis_laser import Laser
 
 # Created using Notepad++. I have no regrets. And notice that it works. :)
 
@@ -240,6 +240,7 @@ def tab_completer(text, state):
                 return cmd
             else:
                 state -= 1
+
 def give_help():
     """Outputs a list of commands to the user for use in interactive mode."""
     print("\nInteractive Mode Commands")
