@@ -7,13 +7,15 @@ run on a BeagleBone Black.
 
 """
 import struct
+import pathlib
+import readline
 from argparse import ArgumentParser
 
 import seabreeze
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 #import Adafruit_BBIO.GPIO as GPIO
-import laser_control
+from OASIS-Laser import Laser
 
 # Created using Notepad++. I have no regrets. And notice that it works. :)
 
@@ -166,12 +168,14 @@ def command_loop():
         elif parts[0] == "arm_laser":
             if check_laser(laser):
                 continue
-            laser.arm()
+            if laser.arm():
+                print("*** Laser ARMED")
 
         elif parts[0] == "disarm_laser":
             if check_laser(laser):
                 continue
-            laser.disarm()
+            if laser.disarm():
+                print("*** Laser DISARMED")
 
         elif parts[0] == "laser_status":
             print("Being implemented") #TODO
@@ -194,6 +198,19 @@ def command_loop():
                 print("!!! Set Laser Rep Rate expects an integer argument! You did not enter an integer.")
                 continue
                 
+        elif parts[0] == "set_laser_pulse_width":
+            if check_laser(laser):
+                continue
+                
+            if len(parts) < 2:
+                print("!!! Set Laser Pulse Width expects an integer argument!")
+                continue
+            try:
+                rate = int(parts[1])
+            except ValueError:
+                print("!!! Set Laser Pulse Width expects an integer argument! You did not enter an integer.")
+                continue
+                
         elif parts[0] == "get_laser_fet_temp":
             if check_laser(laser):
                 continue
@@ -213,6 +230,16 @@ def command_loop():
         else:
             print("!!! Invalid command. Enter the 'help' command for usage information")
 
+COMMAND_LIST = ["do_sample", "connect_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer"]
+
+# Taken from: https://stackoverflow.com/questions/5637124/tab-completion-in-pythons-raw-input
+def tab_completer(text, state):
+    for cmd in COMMAND_LIST:
+        if cmd.startswith(text):
+            if not state:
+                return cmd
+            else:
+                state -= 1
 def give_help():
     """Outputs a list of commands to the user for use in interactive mode."""
     print("\nInteractive Mode Commands")
@@ -227,7 +254,6 @@ def give_help():
     print("\nLASER")
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
 
-
 def main():
     parser = ArgumentParser(description="CLI for performing LIBS using an Ocean Optics FLAME-T spectrometer and a 1064nm Quantum Composers MicroJewel laser.",
     epilog="Created for the 2020 NASA BIG Idea challenge, Penn State Oasis team. Questions: tylersengia@gmail.com",
@@ -241,6 +267,8 @@ def main():
     a = parser.parse_args()
     
     if a.interactive:
+        readline.parse_and_bind("tab: complete")
+        readline.set_completer(tab_completer)
         command_loop()
     
 if __name__ == "__main__":
