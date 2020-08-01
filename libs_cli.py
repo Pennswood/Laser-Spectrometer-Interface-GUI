@@ -15,7 +15,7 @@ import seabreeze
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 #import Adafruit_BBIO.GPIO as GPIO
-from oasis_laser import Laser
+from oasis_laser.laser_control import Laser
 
 # Created using Notepad++. I have no regrets. And notice that it works. :)
 
