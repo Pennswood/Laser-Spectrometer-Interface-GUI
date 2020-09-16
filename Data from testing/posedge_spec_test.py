@@ -11,8 +11,12 @@ spec = seabreeze.spectrometers.Spectrometer(seabreeze.spectrometers.list_devices
 delay_in_micros = 10
 spec.f.spectrometer.set_delay_microseconds(delay_in_micros)
 spec.trigger_mode(3)
-integration_time_in_millis = 20
 
+time.sleep(10)
+
+
+#Test 1: Basic test.
+integration_time_in_millis = 20
 spec.integration_time_micros(integration_time_in_millis*1000)
 timeElapsed = time.time()
 GPIO.output(GPIO_Pin, GPIO.HIGH)
@@ -27,15 +31,19 @@ if(first_spectrum == spec.spectrum()):
 print("First test finished without issues"+"\n")
 
 GPIO.output(GPIO_Pin, GPIO.LOW)
-
-# Test to see if we get the spectrum or not, and if not does it hang or what happens?
 time.sleep(2)
+
+# Test 2: Test to see if we get the spectrum or not, and if not does it hang or what happens?
+
 GPIO.output(GPIO_Pin, GPIO.HIGH)
 time.sleep(1)
 second_spectrum = spec.spectrum()
 print("Second test finished without issues"+"\n")
 
+GPIO.output(GPIO_Pin, GPIO.LOW)
 time.sleep(2)
+
+#Test 3: advanced testing
 integration_time_in_millis = 5000
 
 spec.integration_time_micros(integration_time_in_millis*1000)
