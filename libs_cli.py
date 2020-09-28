@@ -10,6 +10,8 @@ import struct
 import pathlib
 import readline
 from argparse import ArgumentParser
+import time
+import pickle
 
 import seabreeze
 from seabreeze.spectrometers import Spectrometer
@@ -27,6 +29,7 @@ laser = None
 # use_external_trigger = False
 external_trigger_pin = None
 devices = []
+SD_CARD_PATH = './sample/'  # needs to be set before testing
 
 def check_spectrometer(spec):
     """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
@@ -64,6 +67,7 @@ def set_trigger_delay(spec, t):
     data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
     print(data)
     spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
+    # self.spec.f.spectrometer.set_delay_microseconds(t)
     
 def set_external_trigger_pin(pin):
     """Sets the GPIO pin to use for external triggering."""
@@ -80,8 +84,11 @@ def auto_connect_spectrometer():
             spec = seabreeze.spectrometers.Spectrometer(devices[0])
             print("*** Found spectrometer, serial number: " + spec.serial_number)
             return spec
+        except SeaBreezeError as e:
+            print("!!! " + str(e))
+            continue
         except:
-            pass
+            print("Unknown Error")
     print("!!! No spectrometer autodetected!")
 
     # if seabreeze.spectrometers.list_devices():
@@ -91,6 +98,7 @@ def auto_connect_spectrometer():
     # else:
     #     print("!!! No spectrometer autodetected!")
 
+# No longer doing this due to possible errors when connecting. Cannot connect to the same device through 2 methods.
 #TODO: Implement the below function, currently only autodetection works. probably will use the add_rs232 function in Seabreeze API
 def connect_spectrometer(device):
     """Explicitly connect to the spectrometer at the given device file. Returns a Spectrometer on success, None otherwise."""
@@ -127,11 +135,24 @@ def set_integration_time(spec, time):
 
 # check if some setup should also go here, set gpio is currently nonexistent
 def do_sample(spec, pin):
-    """Sets the GPIO pin to high and takes the data from integration."""
+    """Sets the GPIO pin to high and stores the data from integration."""
     GPIO.output(pin, GPIO.HIGH)
+    time.sleep(0.5)  # delay for spectrum, can be removed or edited if tested
     wavelengths, intensities = spec.spectrum()
-    print([wavelengths, intensities])   # temporary for quick testing
+    timestamp = time.time()  # gets time immediately after integrating
+    timestamp = f"{timestamp}"  # TODO: create a function to change the timestamp to human readable
+    # print([wavelengths, intensities])   # temporary for quick testing
     GPIO.output(pin, GPIO.LOW)
+    data = wavelengths, intensities
+    filename = f"{timestamp}"
+    with open(SD_CARD_PATH+filename, 'ab') as file:
+        pickle.dump(data, file)
+
+def load_data(filename):
+    """Prints the data in files. Not added in yet"""
+    with open(SD_CARD_PATH+filename, 'rb') as file:
+        data = pickle.load(file)
+        print(data)
 
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin
@@ -268,7 +289,7 @@ def command_loop():
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
             try:
-                do_sample(spec, external_trigger_pin)
+                do_sample(spectrometer, external_trigger_pin)
             except SeaBreezeError as e:
                 print("!!! " + str(e))
                 continue
@@ -301,7 +322,7 @@ def give_help():
     print("\thelp\t\t\t\tDisplay this help message.")
     print("\texit OR quit\t\t\tExit the program.")
     print("\nSPECTROMETER")
-    print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is optional and autodetection will be used instead.")
+    print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is currently not available and autodetection will be used instead.")
     print("\tset_sample_mode MODE\t\t\tSet the trigger mode of the spectrometer, possible values are: NORMAL, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
     print("\tset_trigger_delay TIME\t\tSet the trigger delay for the spectrometer. TIME is in microseconds.")
     print("\tset_integration_time TIME\t\tSet the Integration Time/Period for the spectrometer. TIME is in microseconds.")
