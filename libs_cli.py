@@ -12,14 +12,18 @@ import readline
 from argparse import ArgumentParser
 import time
 import pickle
+import platform
 
 import seabreeze
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
-import Adafruit_BBIO.GPIO as GPIO
-from oasis_laser.laser_control import Laser
 
-# Created using Notepad++. I have no regrets. And notice that it works. :)
+if platform.system() == "Linux":
+    import Adafruit_BBIO.GPIO as GPIO
+else:
+    from gpio_spoof import DummyGPIO as GPIO 
+
+from ujlaser.lasercontrol import Laser
 
 seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
 
@@ -86,7 +90,6 @@ def auto_connect_spectrometer():
             return spec
         except SeaBreezeError as e:
             print("!!! " + str(e))
-            continue
         except:
             print("Unknown Error")
     print("!!! No spectrometer autodetected!")
