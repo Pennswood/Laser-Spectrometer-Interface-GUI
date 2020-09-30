@@ -10,5 +10,9 @@ class DummyGPIO():
         print("GPIO] Setting pin " + pin_number + " to mode " + pin_mode)
 
     @staticmethod
+    def cleanup():
+        print("GPIO] Cleanup called.")
+
+    @staticmethod
     def output(pin_number, value):
         print("GPIO] Writing " + value + " to pin " + pin_number)

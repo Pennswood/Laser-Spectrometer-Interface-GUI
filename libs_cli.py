@@ -31,7 +31,7 @@ running = True
 spectrometer = None
 laser = None
 # use_external_trigger = False
-external_trigger_pin = None
+external_trigger_pin = "P8_26"
 devices = []
 SD_CARD_PATH = './sample/'  # needs to be set before testing
 
