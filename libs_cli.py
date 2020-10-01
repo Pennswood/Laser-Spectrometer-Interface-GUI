@@ -143,11 +143,11 @@ def do_sample(spec, pin):
     time.sleep(0.5)  # delay for spectrum, can be removed or edited if tested
     wavelengths, intensities = spec.spectrum()
     timestamp = time.time()  # gets time immediately after integrating
-    timestamp = f"{timestamp}"  # TODO: create a function to change the timestamp to human readable
+    timestamp = str(timestamp) # TODO: create a function to change the timestamp to human readable
     # print([wavelengths, intensities])   # temporary for quick testing
     GPIO.output(pin, GPIO.LOW)
     data = wavelengths, intensities
-    filename = f"{timestamp}"
+    filename = str(filename) 
     with open(SD_CARD_PATH+filename, 'ab') as file:
         pickle.dump(data, file)
 
