@@ -13,6 +13,7 @@ from argparse import ArgumentParser
 import time
 import pickle
 import platform
+import serial
 
 import seabreeze
 seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
@@ -180,6 +181,23 @@ def save_sample_csv(filename, wavelengths, intensities):
                 f.write(str(wavelengths)+","+str(intensities)+"\n")
         f.close()
 
+def user_select_port():
+   ports = serial.tools.list_ports.comports()
+   if len(ports) == 0:
+       print("No serial ports detected!")
+       return
+   print("\t0) Cancel")
+   for i,p in enumerate(ports):
+        print("\t" + str(i+1) + ") " + str(p))
+   i = int(input("Select a port or 0 to cancel: "))
+   if i == 0:
+        return
+   if i < 0 or i > len(ports):
+        print("Invalid entry, please try again.")
+        return user_select_port()
+   else:
+        return ports[i-1].device
+
 def give_status(spec, l):
     """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
     s = "Status at: " + str(time.time()) + "\n"
@@ -285,8 +303,13 @@ def command_loop():
                 spectrometer = connect_spectrometer(parts[1])
 
         elif parts[0] == "connect_laser":
-            print("Being implemented") #TODO
-            
+            port = user_select_port()
+            if not port:
+                print("!!! Aborting connect laser.")
+                continue
+            laser = Laser()
+            laser.connect(port)
+
         elif parts[0] == "arm_laser":
             if check_laser(laser):
                 continue
