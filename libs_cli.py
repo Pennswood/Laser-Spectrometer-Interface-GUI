@@ -30,6 +30,7 @@ running = True
 spectrometer = None
 laser = None
 # use_external_trigger = False
+user_laser = False
 external_trigger_pin = "P8_26"
 devices = []
 SD_CARD_PATH = './sample/'  # needs to be set before testing
@@ -150,6 +151,19 @@ def do_sample(spec, pin):
     with open(SD_CARD_PATH+filename, 'ab') as file:
         pickle.dump(data, file)
 
+# Takes a sample from the spectrometer without the laser firing
+def do_calibration_sample(self):
+    wavelengths, intensities = spec.spectrum()
+    timestamp = time.time()
+    timestamp = str(timestamp)
+    data = wavelengths, intensities
+    filename = "SAMPLE_" + timestamp + ".pickle"
+    f = input("Save sample as [" + filename + "]:")
+    if f != "":
+        filename = f
+    with open(filename, 'ab') as file:
+        pickle.dump(data, file)
+
 def load_data(filename):
     """Prints the data in files. Not added in yet"""
     with open(SD_CARD_PATH+filename, 'rb') as file:
@@ -164,6 +178,11 @@ def command_loop():
         if parts[0] == "help": # check to see what command we were given
             give_help()
 
+        elif parts[0] == "do_calibration_sample":
+            if check_spectrometer(spectrometer):
+                continue
+            do_calibration_sample()
+        
         elif parts[0] == "dump_spectrometer_registers":
             if check_spectrometer(spectrometer):
                 continue
@@ -307,7 +326,7 @@ def command_loop():
         else:
             print("!!! Invalid command. Enter the 'help' command for usage information")
 
-COMMAND_LIST = ["help", "exit", "quit", "do_sample", "dump_spectrometer_registers", "connect_laser", "arm_laser", "disarm_laser", "laser_status", "fire_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer"]
+COMMAND_LIST = ["do_calibration_sample", "help", "exit", "quit", "do_sample", "dump_spectrometer_registers", "connect_laser", "arm_laser", "disarm_laser", "laser_status", "fire_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer", "set_sample_mode"]
 
 # Taken from: https://stackoverflow.com/questions/5637124/tab-completion-in-pythons-raw-input
 def tab_completer(text, state):
