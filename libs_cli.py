@@ -22,7 +22,7 @@ from seabreeze.cseabreeze._wrapper import SeaBreezeError
 if platform.system() == "Linux":
     import Adafruit_BBIO.GPIO as GPIO
 else:
-    from gpio_spoof import DummyGPIO as GPIO 
+    from gpio_spoof import DummyGPIO as GPIO
 
 from ujlaser.lasercontrol import Laser
 
@@ -50,11 +50,12 @@ def check_spectrometer(spec, complain=True):
     #     print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
     #     return True
     # return False
-    
-def check_laser(laser):
+
+def check_laser(laser, complain=True):
     """Helper function that prints an error message if the laser has not been connected yet. Returns True if the laser is NOT connected."""
     if laser == None:
-        print("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
+        if complain:
+            print("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
         return True
     return False
 
@@ -162,7 +163,7 @@ def do_calibration_sample(spec):
     f = input("Save sample as [" + filename + "]:")
     if f != "":
         filename = f
-    with open(filename, 'ab') as file:
+    with open("samples/" + filename, 'ab') as file:
         pickle.dump(data, file)
 
 def load_data(filename):
@@ -174,20 +175,20 @@ def load_data(filename):
 def give_status(spec, l):
     """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
     s = "Status at: " + str(time.time()) + "\n"
-    if not check_spectrometer(spec, False): 
+    if check_spectrometer(spec, False):
         s += "Spectrometer is not connected.\n"
     else:
         s += "Spectrometer:\n\t"
-        s += "Sample Mode:"
+        s += "Sample Mode:\n"
 
-    if not check_laser(l, False):
+    if check_laser(l, False):
         s += "Laser is not connected.\n"
     else:
         s += "Laser:\n\t"
         s += "Energy Mode:\n"
 
     print(s)
-    log = open("LOG_" + str(time.time()) + ".log")
+    log = open("logs/" + "LOG_" + str(time.time()) + ".log", "w")
     log.write(s)
     log.close()
 
