@@ -201,12 +201,16 @@ def user_select_port():
 def give_status(spec, l):
     """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
     s = "Status at: " + str(time.time()) + "\n"
+    
     if check_spectrometer(spec, False):
         s += "Spectrometer is not connected.\n"
     else:
+        s += "Spectrometer\n\t"
+        s += "Model-ID:\n\t"
         s += "Spectrometer:\n\t"
         s += "Sample Mode:\n"
-
+    
+    print("\n")
     if check_laser(l, False):
         s += "Laser is not connected.\n"
     else:
@@ -309,7 +313,9 @@ def command_loop():
                 continue
             laser = Laser()
             laser.connect(port)
-
+            s = laser.get_status()
+            print("Laser Status:")
+            print(s)
         elif parts[0] == "arm_laser":
             if check_laser(laser):
                 continue
@@ -323,7 +329,11 @@ def command_loop():
                 print("*** Laser DISARMED")
 
         elif parts[0] == "laser_status":
-            print("Being implemented") #TODO
+            if check_laser(laser):
+                print("Laser is not connected.")
+                continue
+            s = laser.get_status()
+            print(s)
 
         elif parts[0] == "fire_laser":
             if check_laser(laser):
