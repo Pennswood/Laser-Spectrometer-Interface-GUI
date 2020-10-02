@@ -25,7 +25,7 @@ if platform.system() == "Linux":
 else:
     from gpio_spoof import DummyGPIO as GPIO
 
-from ujlaser.lasercontrol import Laser
+from ujlaser.lasercontrol import Laser, LaserCommandError
 
 running = True
 spectrometer = None
@@ -316,6 +316,7 @@ def command_loop():
             s = laser.get_status()
             print("Laser Status:")
             print(s)
+
         elif parts[0] == "arm_laser":
             if check_laser(laser):
                 continue
@@ -349,8 +350,14 @@ def command_loop():
                 continue
             try:
                 rate = int(parts[1])
+                if rate < 0:
+                    raise ValueError("Repetition Rate must be positive!")
+                laser.set_rep_rate(rate)
             except ValueError:
-                print("!!! Set Laser Rep Rate expects an integer argument! You did not enter an integer.")
+                print("!!! Set Laser Rep Rate expects a positive integer argument! You did not enter an integer.")
+                continue
+            except LaserCommandError as e:
+                print("!!! Error encountered while commanding laser! " + str(e))
                 continue
                 
         elif parts[0] == "set_laser_pulse_width":
@@ -361,16 +368,20 @@ def command_loop():
                 print("!!! Set Laser Pulse Width expects an integer argument!")
                 continue
             try:
-                rate = int(parts[1])
+                width = float(parts[1])
+                laser.set_pulse_width(width)
             except ValueError:
                 print("!!! Set Laser Pulse Width expects an integer argument! You did not enter an integer.")
+                continue
+            except LaserCommandError as e:
+                print("!!! Error encountered while commanding laser! " + str(e))
                 continue
                 
         elif parts[0] == "get_laser_fet_temp":
             if check_laser(laser):
                 continue
-            t = laser.fet_temp_check() # TODO: This returns a bytes object, this might be ASCII or a float? Need to do testing.
-            print("*** Laser FET temperature: " + str(t))
+            t = laser.get_fet_temp()
+            print("Laser FET temperature: " + str(t))
 
         elif parts[0] == "do_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
@@ -380,6 +391,8 @@ def command_loop():
             except SeaBreezeError as e:
                 print("!!! " + str(e))
                 continue
+            except LaserCommandError as e:
+                print("!!! Error while commanding laser! " + str(e))
             except:
                 print("!!! Check External Triggering PIN")
                 continue
