@@ -35,14 +35,15 @@ external_trigger_pin = "P8_26"
 devices = []
 SD_CARD_PATH = './sample/'  # needs to be set before testing
 
-def check_spectrometer(spec):
+def check_spectrometer(spec, complain=True):
     """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
     global devices
     if devices != []:
         is_open = devices[0].is_open
         if is_open:
             return False
-    print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+    if complain:
+        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
     return True
 
     # if spec == None:
@@ -152,7 +153,7 @@ def do_sample(spec, pin):
         pickle.dump(data, file)
 
 # Takes a sample from the spectrometer without the laser firing
-def do_calibration_sample(self):
+def do_calibration_sample(spec):
     wavelengths, intensities = spec.spectrum()
     timestamp = time.time()
     timestamp = str(timestamp)
@@ -170,6 +171,26 @@ def load_data(filename):
         data = pickle.load(file)
         print(data)
 
+def give_status(spec, l):
+    """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
+    s = "Status at: " + str(time.time()) + "\n"
+    if not check_spectrometer(spec, False): 
+        s += "Spectrometer is not connected.\n"
+    else:
+        s += "Spectrometer:\n\t"
+        s += "Sample Mode:"
+
+    if not check_laser(l, False):
+        s += "Laser is not connected.\n"
+    else:
+        s += "Laser:\n\t"
+        s += "Energy Mode:\n"
+
+    print(s)
+    log = open("LOG_" + str(time.time()) + ".log")
+    log.write(s)
+    log.close()
+
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin
     while running:
@@ -181,8 +202,8 @@ def command_loop():
         elif parts[0] == "do_calibration_sample":
             if check_spectrometer(spectrometer):
                 continue
-            do_calibration_sample()
-        
+            do_calibration_sample(spectrometer)
+ 
         elif parts[0] == "dump_spectrometer_registers":
             if check_spectrometer(spectrometer):
                 continue
@@ -230,6 +251,9 @@ def command_loop():
                 print("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
                 continue
 
+        elif parts[0] == "status":
+            give_status(spectrometer, laser)
+            continue
         elif parts[0] == "set_external_trigger_pin":
             if check_spectrometer(spectrometer):
                 continue
