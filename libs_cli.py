@@ -165,12 +165,20 @@ def do_calibration_sample(spec):
         filename = f
     with open("samples/" + filename, 'ab') as file:
         pickle.dump(data, file)
+    #save_sample_csv("samples/" + filename, wavelengths, intensities)
 
 def load_data(filename):
     """Prints the data in files. Not added in yet"""
     with open(SD_CARD_PATH+filename, 'rb') as file:
         data = pickle.load(file)
         print(data)
+
+def save_sample_csv(filename, wavelengths, intensities):
+    with open(filename, "w") as f:
+        f.write("Wavelengths,Intensities\n")
+        for i in range(0,len(wavelengths)):
+                f.write(str(wavelengths)+","+str(intensities)+"\n")
+        f.close()
 
 def give_status(spec, l):
     """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
