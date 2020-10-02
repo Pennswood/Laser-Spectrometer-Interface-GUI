@@ -15,6 +15,7 @@ import pickle
 import platform
 
 import seabreeze
+seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 
@@ -24,8 +25,6 @@ else:
     from gpio_spoof import DummyGPIO as GPIO 
 
 from ujlaser.lasercontrol import Laser
-
-seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
 
 running = True
 spectrometer = None
