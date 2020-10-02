@@ -11,10 +11,11 @@ def convert_pickle_to_csv(input,output):
     o.close()
     f.close()
 
-if len(sys.argv) > 1:
+if len(sys.argv) == 2:
     print("Converting file: " + sys.argv[1])
     outname = input("Output filename: ")
-    f = sys.argv[1]
-    convert_pickle_to_csv(f,outname)
+    convert_pickle_to_csv(sys.argv[1],outname)
 
-
+elif len(sys.argv) == 3:
+    print("Converting file: " + sys.argv[1] + ", output as: " + sys.argv[2])
+    convert_pickle_to_csv(sys.argv[1],sys.argv[2])
