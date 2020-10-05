@@ -38,6 +38,7 @@ devices = []
 command_log = None # File handle to the log file that we will store list of command queries
 SD_CARD_PATH = './sample/'  # needs to be set before testing
 LOG_PATH = "logs/"
+SAMPLES_PATH = "samples/"
 
 def check_spectrometer(spec, complain=True):
     """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
@@ -70,13 +71,14 @@ def set_trigger_delay(spec, t):
     t_nano_seconds = t * 1000 #convert micro->nano seconds
     t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
     data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
-    #print_cli(data)
     spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
     # self.spec.f.spectrometer.set_delay_microseconds(t)
     
 def set_external_trigger_pin(pin):
     """Sets the GPIO pin to use for external triggering."""
+    global external_trigger_pin
     GPIO.setup(pin, GPIO.OUT)
+    external_trigger_pin = pin
 
 def auto_connect_spectrometer():
     """Use seabreeze to autodetect and connect to a spectrometer. Returns a Spectrometer object on success, None otherwise"""
@@ -101,12 +103,6 @@ def auto_connect_spectrometer():
     #     return spec
     # else:
     #     print_cli("!!! No spectrometer autodetected!")
-
-# No longer doing this due to possible errors when connecting. Cannot connect to the same device through 2 methods.
-#TODO: Implement the below function, currently only autodetection works. probably will use the add_rs232 function in Seabreeze API
-def connect_spectrometer(device):
-    """Explicitly connect to the spectrometer at the given device file. Returns a Spectrometer on success, None otherwise."""
-    return None
 
 def set_sample_mode(spec, mode):
     """Sets the spectrometer sampling trigger to the specified mode."""
@@ -137,23 +133,19 @@ def set_integration_time(spec, time):
     print_cli("*** Integration time set to " + str(time) + " microseconds.")
     return True
 
-# check if some setup should also go here, set gpio is currently nonexistent
 def do_sample(spec, pin):
     """Sets the GPIO pin to high and stores the data from integration."""
     GPIO.output(pin, GPIO.HIGH)
-    time.sleep(0.5)  # delay for spectrum, can be removed or edited if tested
-    wavelengths, intensities = spec.spectrum()
-    timestamp = time.time()  # gets time immediately after integrating
-    timestamp = str(timestamp) # TODO: create a function to change the timestamp to human readable
-    # print_cli([wavelengths, intensities])   # temporary for quick testing
+    time.sleep(0.01)  # delay for spectrum, can be removed or edited if tested
     GPIO.output(pin, GPIO.LOW)
+    wavelengths, intensities = spec.spectrum()
+    timestamp = str(time.time())  # gets time immediately after integrating
     data = wavelengths, intensities
-    filename = str(filename) 
-    with open(SD_CARD_PATH+filename, 'ab') as file:
+    with open(SAMPLES_PATH + str(timestamp) + "_SAMPLE.pickle", 'ab') as file:
         pickle.dump(data, file)
 
 # Takes a sample from the spectrometer without the laser firing
-def do_calibration_sample(spec):
+def get_spectrum(spec):
     wavelengths, intensities = spec.spectrum()
     timestamp = time.time()
     timestamp = str(timestamp)
@@ -258,10 +250,10 @@ def command_loop():
         if c == "help": # check to see what command we were given
             give_help()
 
-        elif c == "spectrometer calibrate":
+        elif c == "spectrometer spectrum":
             if check_spectrometer(spectrometer):
                 continue
-            do_calibration_sample(spectrometer)
+            get_spectrum(spectrometer)
  
         elif c == "spectrometer dump_registers":
             if check_spectrometer(spectrometer):
@@ -313,6 +305,7 @@ def command_loop():
         elif c == "status":
             give_status(spectrometer, laser)
             continue
+
         elif parts[0:4] == ["set","external_trigger_pin"]:
             if len(parts) < 3:
                 print_cli("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
@@ -326,9 +319,11 @@ def command_loop():
             except:
                 cli_print("!!! " + pin + " is not a valid pin name! Should follow format such as: P8_22 or P9_16 (these are examples).")
                 continue
+
         elif c == "get external_trigger_pin":
             print_cli("External trigger pin is set to: " + external_trigger_pin)
             continue
+
         elif parts[0:3] == ["spectrometer","connect"]:
             if len(parts) == 2:
                 spectrometer = auto_connect_spectrometer()
@@ -406,14 +401,39 @@ def command_loop():
             except LaserCommandError as e:
                 print_cli("!!! Error encountered while commanding laser! " + str(e))
                 continue
-                
+
+        elif parts[0:3] == ["laser","set","energy_mode"]:
+            if check_laser(laser):
+                continue
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Energy Mode expects one of: LOW, HIGH, or MANUAL!")
+                continue
+            
+            m = -1
+            if parts[3] == "MANUAL":
+                m = 0
+            elif parts[3] == "LOW":
+                m = 1
+            elif parts[3] == "HIGH":
+                m = 2
+            else:
+                print_cli("!!! Set Laser Energy Mode expects one of: LOW, HIGH, or MANUAL!")
+                continue
+            try:
+                laser.set_energy_mode(m)
+                print_cli("Set Laser energy mode to " + parts[3])
+                continue
+            except LaserCommandError as e:
+                print_cli("!!! Error while commanding laser! " + str(e))
+                continue
+
         elif parts[0:3] == ["laser","get","fet_temp"]:
             if check_laser(laser):
                 continue
             t = laser.get_fet_temp()
             print_cli("Laser FET temperature: " + str(t))
 
-        elif c == "do_sample":
+        elif c == "do_libs_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
             try:
@@ -443,15 +463,15 @@ def command_loop():
             print_cli("!!! Invalid command. Enter the 'help' command for usage information")
 
 # Root commands allow the user to specify which instrument (laser or spectrometer) they are interacting with, or interact with other aspects of the program
-ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", "status", "do_sample", "do_trigger"]
+ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", "status", "do_libs_sample", "do_trigger"]
 
 # Actions are things that the user can do to the laser and spectrometer
-SPECTROMETER_ACTIONS = ["calibrate", "set", "get", "connect", "status", "dump_registers"]
+SPECTROMETER_ACTIONS = ["spectrum", "set", "get", "connect", "status", "dump_registers"]
 LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
 
 # Properties are things that can be get and/or set by the user
-SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay"]
-LASER_PROPERTIES = ["fet_temp", "pulse_width", "rep_rate"]
+SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay", "spectrum"]
+LASER_PROPERTIES = ["diode_current", "energy_mode", "fet_temp", "pulse_width", "rep_rate"]
 ROOT_PROPERTIES = ["external_trigger_pin"]
 
 def tab_completer(text, state):
