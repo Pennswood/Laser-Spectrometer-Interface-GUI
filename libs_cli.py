@@ -72,6 +72,15 @@ def query_settings(spec):
     spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">s",b'\xFE'),'primary_out')
     output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=16)
     pixel_count, integration_time, lamp_enable, trigger_mode, spectral_status, spectra_packets, power_down, packet_count, comm_speed = struct.unpack(">HI?BcB?BxxBx", output) 
+    print_cli("Pixel Count: " + str(pixel_count))
+    print_cli("Integration_time: " + str(integration_time))
+    print_cli("Lamp Enable: " + str(lamp_enable))
+    print_cli("Trigger Mode: " + str(trigger_mode))
+    print_cli("Spectrum Status: " + str(spectral_status))
+    print_cli("Spectra packets: " + str(spectra_packets))
+    print_cli("Power Down Flags: " + str(power_down))
+    print_cli("Packet Count: " + str(packet_count))
+    print_cli("USB Speed: " + str(comm_speed))
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
