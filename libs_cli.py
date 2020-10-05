@@ -23,14 +23,14 @@ from seabreeze.cseabreeze._wrapper import SeaBreezeError
 if platform.system() == "Linux":
     import Adafruit_BBIO.GPIO as GPIO
 else:
-    from gpio_spoof import DummyGPIO as GPIO
+    from gpio_spoof import DummyGPIO as GPIO # This is for debugging purposes
 
 from ujlaser.lasercontrol import Laser, LaserCommandError
 
 running = True
+verbose = False
 spectrometer = None
 laser = None
-# use_external_trigger = False
 
 external_trigger_pin = "P8_26"
 devices = []
@@ -49,11 +49,6 @@ def check_spectrometer(spec, complain=True):
     if complain:
         print_cli("!!! This command requires the spectrometer to be connected! Use 'spectrometer connect' first!")
     return True
-
-    # if spec == None:
-    #     print_cli("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
-    #     return True
-    # return False
 
 def check_laser(laser, complain=True):
     """Helper function that prints an error message if the laser has not been connected yet. Returns True if the laser is NOT connected."""
@@ -75,7 +70,7 @@ def set_trigger_delay(spec, t):
     t_nano_seconds = t * 1000 #convert micro->nano seconds
     t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
     data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
-    print_cli(data)
+    #print_cli(data)
     spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
     # self.spec.f.spectrometer.set_delay_microseconds(t)
     
@@ -318,22 +313,23 @@ def command_loop():
         elif c == "status":
             give_status(spectrometer, laser)
             continue
-        elif parts[0] == "set_external_trigger_pin":
-            if check_spectrometer(spectrometer):
-                continue
-            if len(parts) < 2:
+        elif parts[0:4] == ["set","external_trigger_pin"]:
+            if len(parts) < 3:
                 print_cli("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
                 continue
             try:
-                pin = parts[1]
+                pin = parts[2]
+                if not pin.startswith("P8_") or pin.startswith("P9_"):
+                    raise ValueError("Invalid pin!")
                 set_external_trigger_pin(spectrometer, pin)
                 external_trigger_pin = pin
-            except: # not sure what type of exception this is yet, unable to test it
-                cli_print("!!! PIN is not a valid PIN. A valid PIN could be P8_7 or GPIO0_26")
-                # print("!!! " + str(e))
+            except:
+                cli_print("!!! " + pin + " is not a valid pin name! Should follow format such as: P8_22 or P9_16 (these are examples).")
                 continue
-
-        elif c == "spectrometer connect":
+        elif c == "get external_trigger_pin":
+            print_cli("External trigger pin is set to: " + external_trigger_pin)
+            continue
+        elif parts[0:3] == ["spectrometer","connect"]:
             if len(parts) == 2:
                 spectrometer = auto_connect_spectrometer()
             elif len(parts) == 3:
@@ -432,6 +428,11 @@ def command_loop():
                 continue
             # print_cli("Being implemented") #TODO
         
+        elif c == "do_trigger":
+            GPIO.output(external_trigger_pin, GPIO.HIGH)
+            time.sleep(0.01)
+            GPIO.output(external_trigger_pin, GPIO.LOW)
+            print_cli("Triggered " + external_trigger_pin + ".") 
         elif c == "exit" or c == "quit":
             if spectrometer:
                 spectrometer.close()
@@ -441,10 +442,8 @@ def command_loop():
         else:
             print_cli("!!! Invalid command. Enter the 'help' command for usage information")
 
-#COMMAND_LIST = ["spectrometer calibrate", "help", "exit", "quit", "do_sample", "spectrometer dump_registers", "laser connect", "laser arm", "laser disarm", "laser status", "laser fire", "laser get fet_temp", "set_external_trigger_pin", "laser set pulse_width", "laser set rep_rate", "spectrometer set trigger_delay", "spectrometer connect", "spectrometer set sample_mode"]
-
 # Root commands allow the user to specify which instrument (laser or spectrometer) they are interacting with, or interact with other aspects of the program
-ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "do_sample", "status"]
+ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", "status", "do_sample", "do_trigger"]
 
 # Actions are things that the user can do to the laser and spectrometer
 SPECTROMETER_ACTIONS = ["calibrate", "set", "get", "connect", "status", "dump_registers"]
@@ -453,6 +452,7 @@ LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
 # Properties are things that can be get and/or set by the user
 SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay"]
 LASER_PROPERTIES = ["fet_temp", "pulse_width", "rep_rate"]
+ROOT_PROPERTIES = ["external_trigger_pin"]
 
 def tab_completer(text, state):
     text = readline.get_line_buffer()
@@ -470,14 +470,30 @@ def tab_completer(text, state):
             elif root == "spectrometer":
                 if parts[1] in SPECTROMETER_ACTIONS:
                     action = parts[1]
+            elif root == "set":
+                root = None
+                action = "set"
+            elif root == "get":
+                root = None
+                action = "get"
 
     if root == None:
-        for cmd in ROOT_COMMANDS:
-            if cmd.startswith(text):
-                if not state:
-                    return cmd
+        if action == "get" or action == "set": # Getter and setter actions for root properties
+            if len(parts) < 2:
+                parts[1] = ""
+
+            for p in ROOT_PROPERTIES:
+                if p.startswith(parts[1]):
+                    return p
                 else:
                     state -= 1
+        else:
+            for cmd in ROOT_COMMANDS:
+                if cmd.startswith(text):
+                    if not state:
+                        return cmd
+                    else:
+                        state -= 1
 
     elif not action and root == "laser":
         if len(parts) < 2:
@@ -547,7 +563,7 @@ def give_help():
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
 
 def main():
-    global command_log
+    global command_log, external_trigger_pin
     parser = ArgumentParser(description="CLI for performing LIBS using an Ocean Optics FLAME-T spectrometer and a 1064nm Quantum Composers MicroJewel laser.",
     epilog="Created for the 2020 NASA BIG Idea challenge, Penn State Oasis team. Questions: tylersengia@gmail.com",
     prog="libs_cli.py")
@@ -560,7 +576,8 @@ def main():
     a = parser.parse_args()
     
     command_log = open(LOG_PATH + "LOG_" + str(int(time.time())) + ".log", "w")
-    
+    GPIO.setup(external_trigger_pin, GPIO.OUT)
+
     if a.interactive:
         readline.parse_and_bind("tab: complete")
         readline.set_completer(tab_completer)
