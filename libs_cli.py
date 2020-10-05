@@ -31,10 +31,13 @@ running = True
 spectrometer = None
 laser = None
 # use_external_trigger = False
-user_laser = False
+
 external_trigger_pin = "P8_26"
 devices = []
+
+command_log = None # File handle to the log file that we will store list of command queries
 SD_CARD_PATH = './sample/'  # needs to be set before testing
+LOG_PATH = "logs/"
 
 def check_spectrometer(spec, complain=True):
     """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
@@ -44,7 +47,7 @@ def check_spectrometer(spec, complain=True):
         if is_open:
             return False
     if complain:
-        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        print_cli("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
     return True
 
     # if spec == None:
@@ -56,16 +59,16 @@ def check_laser(laser, complain=True):
     """Helper function that prints an error message if the laser has not been connected yet. Returns True if the laser is NOT connected."""
     if laser == None:
         if complain:
-            print("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
+            print_cli("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
         return True
     return False
 
 def dump_settings_register(spec):
-    print("... Dumping settings register:")
+    print_cli("... Dumping settings register:")
     for i in (b'\x00', b'\x04', b'\x08', b'\x0C', b'\x10', b'\x14', b'\x18', b'\x28', b'\x2C', b'\x38', b'\x3C', b'\x40', b'\x48', b'\x50', b'\x54', b'\x74', b'\x78', b'\x7C', b'\x80'):
         spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">ss",b'\x6B',i),'primary_out')
         output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=3)
-        print(str(i) + "\t" + str(output[1:]))
+        print_cli(str(i) + "\t" + str(output[1:]))
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
@@ -89,13 +92,13 @@ def auto_connect_spectrometer():
     if devices != []:
         try:
             spec = seabreeze.spectrometers.Spectrometer(devices[0])
-            print("*** Found spectrometer, serial number: " + spec.serial_number)
+            print_cli("*** Found spectrometer, serial number: " + spec.serial_number)
             return spec
         except SeaBreezeError as e:
-            print("!!! " + str(e))
+            print_cli("!!! " + str(e))
         except:
-            print("Unknown Error")
-    print("!!! No spectrometer autodetected!")
+            print_cli("Unknown Error")
+    print_cli("!!! No spectrometer autodetected!")
 
     # if seabreeze.spectrometers.list_devices():
     #     spec = seabreeze.spectrometers.Spectrometer.from_first_available()
@@ -126,17 +129,17 @@ def set_sample_mode(spec, mode):
 
     try:
         spec.trigger_mode(i)
-        print("*** Spectrometer trigger mode set to " + mode + " (" + str(i) + ")")
+        print_cli("*** Spectrometer trigger mode set to " + mode + " (" + str(i) + ")")
         return True
     except SeaBreezeError as e:
-        print("!!! " + str(e))
-        print("!!! Spectrometer does not support mode number " + str(i) + " (" + mode + ")!")
+        print_cli("!!! " + str(e))
+        print_cli("!!! Spectrometer does not support mode number " + str(i) + " (" + mode + ")!")
         return False
 
 def set_integration_time(spec, time):
     """Sets the integration time of the spectrometer. Returns True on success, False otherwise."""
     spec.integration_time_micros(time)
-    print("*** Integration time set to " + str(time) + " microseconds.")
+    print_cli("*** Integration time set to " + str(time) + " microseconds.")
     return True
 
 # check if some setup should also go here, set gpio is currently nonexistent
@@ -162,6 +165,7 @@ def do_calibration_sample(spec):
     data = wavelengths, intensities
     filename = "SAMPLE_" + timestamp + ".pickle"
     f = input("Save sample as [" + filename + "]:")
+    log_input(f)
     if f != "":
         filename = f
     with open("samples/" + filename, 'ab') as file:
@@ -175,6 +179,7 @@ def load_data(filename):
         print(data)
 
 def save_sample_csv(filename, wavelengths, intensities):
+    debug_log("Saving sample as CSV: " + filename + "; len(wavelengths) = " + len(wavelengths) + ", len(intensities) = " + len(intensities))
     with open(filename, "w") as f:
         f.write("Wavelengths,Intensities\n")
         for i in range(0,len(wavelengths)):
@@ -182,21 +187,28 @@ def save_sample_csv(filename, wavelengths, intensities):
         f.close()
 
 def user_select_port():
-   ports = serial.tools.list_ports.comports()
-   if len(ports) == 0:
-       print("No serial ports detected!")
-       return
-   print("\t0) Cancel")
-   for i,p in enumerate(ports):
-        print("\t" + str(i+1) + ") " + str(p))
-   i = int(input("Select a port or 0 to cancel: "))
-   if i == 0:
+    ports = serial.tools.list_ports.comports()
+    if len(ports) == 0:
+        print_cli("No serial ports detected!")
         return
-   if i < 0 or i > len(ports):
-        print("Invalid entry, please try again.")
-        return user_select_port()
-   else:
-        return ports[i-1].device
+    print_cli("\t0) Cancel")
+    for i,p in enumerate(ports):
+        print_cli("\t" + str(i+1) + ") " + str(p))
+
+    try:
+        i = input("Select a port or 0 to cancel: ")
+        log_input(i)
+        i = int(i)
+    except ValueError:
+        i = -1
+
+    if i == 0:
+         return
+    if i < 0 or i > len(ports):
+         print_cli("Invalid entry, please try again.")
+         return user_select_port()
+    else:
+         return ports[i-1].device
 
 def give_status(spec, l):
     """Prints out a status report of the spectrometer and laser. Also saves the report to a file"""
@@ -210,22 +222,42 @@ def give_status(spec, l):
         s += "Spectrometer:\n\t"
         s += "Sample Mode:\n"
     
-    print("\n")
+    s + "\n"
     if check_laser(l, False):
         s += "Laser is not connected.\n"
     else:
-        s += "Laser:\n\t"
-        s += "Energy Mode:\n"
+        s += "Laser:\n"
+        s += str(l.get_status())
 
-    print(s)
-    log = open("logs/" + "LOG_" + str(time.time()) + ".log", "w")
-    log.write(s)
-    log.close()
+    cli_print(s)
+
+# Please use the below function when printing to the command line. This will both print to the command line and print it to the log file.
+def cli_print(txt):
+    global command_log
+    command_log.write(str(int(time.time())) + ">: " + txt + "\n")
+    print(txt)
+
+# This is a helper function because I'm REALLY lazy and don't feel like getting Python's runtime errors. I know this is an atrocity. Not sorry.
+def print_cli(txt):
+    cli_print(txt)
+
+# Print to the log file. Will print to CLI if verbose mode is enabled.
+def debug_log(txt):
+    global command_log, verbose
+    command_log.write(str(time.time()) + "D:" + txt + "\n")
+    if verbose:
+        print("D: " + txt)
+
+# Writes user input/commands to the command log file.
+def log_input(txt):
+    global command_log
+    command_log.write(str(int(time.time())) + "?:" + txt + "\n")
 
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin
     while running:
         c = input("?").strip() # Get a command from the user and remove any extra whitespace
+        log_input("?" + c)
         parts = c.split() # split the command up into the command and any arguments
         if parts[0] == "help": # check to see what command we were given
             give_help()
@@ -279,7 +311,7 @@ def command_loop():
             if parts[1] == "NORMAL" or parts[1] == "SOFTWARE" or parts[1] == "EXT_LEVEL" or parts[1] == "EXT_SYNC" or parts[1] == "EXT_EDGE":
                 set_sample_mode(spectrometer, parts[1])
             else:
-                print("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+                cli_print("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
                 continue
 
         elif parts[0] == "status":
@@ -289,14 +321,14 @@ def command_loop():
             if check_spectrometer(spectrometer):
                 continue
             if len(parts) < 2:
-                print("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
+                cli_print("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
                 continue
             try:
                 pin = parts[1]
                 set_external_trigger_pin(spectrometer, pin)
                 external_trigger_pin = pin
             except: # not sure what type of exception this is yet, unable to test it
-                print("!!! PIN is not a valid PIN. A valid PIN could be P8_7 or GPIO0_26")
+                cli_print("!!! PIN is not a valid PIN. A valid PIN could be P8_7 or GPIO0_26")
                 # print("!!! " + str(e))
                 continue
 
@@ -309,13 +341,14 @@ def command_loop():
         elif parts[0] == "connect_laser":
             port = user_select_port()
             if not port:
-                print("!!! Aborting connect laser.")
+                cli_print("!!! Aborting connect laser.")
                 continue
             laser = Laser()
             laser.connect(port)
             s = laser.get_status()
-            print("Laser Status:")
-            print(s)
+            cli_print("Laser Status:")
+            cli_print("ID: " + laser.get_laser_ID() + "\n")
+            cli_print(str(s))
 
         elif parts[0] == "arm_laser":
             if check_laser(laser):
@@ -433,6 +466,7 @@ def give_help():
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
 
 def main():
+    global command_log
     parser = ArgumentParser(description="CLI for performing LIBS using an Ocean Optics FLAME-T spectrometer and a 1064nm Quantum Composers MicroJewel laser.",
     epilog="Created for the 2020 NASA BIG Idea challenge, Penn State Oasis team. Questions: tylersengia@gmail.com",
     prog="libs_cli.py")
@@ -444,12 +478,15 @@ def main():
     parser.add_argument("--no-interact", "-n", help="Do not run in interactive mode. Usually used when a pre-written test configuration file is being used.", dest="interactive", action="store_false", default=True)
     a = parser.parse_args()
     
+    command_log = open(LOG_PATH + "LOG_" + str(int(time.time())) + ".log", "w")
+    
     if a.interactive:
         readline.parse_and_bind("tab: complete")
         readline.set_completer(tab_completer)
         command_loop()
 
     GPIO.cleanup()
+    command_log.close()
     
 if __name__ == "__main__":
     main()
