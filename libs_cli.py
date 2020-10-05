@@ -259,9 +259,10 @@ def command_loop():
         c = input("?").strip() # Get a command from the user and remove any extra whitespace
         log_input("?" + c)
         parts = c.split() # split the command up into the command and any arguments
+        
         if parts[0] == "help": # check to see what command we were given
             give_help()
-
+       
         elif parts[0] == "do_calibration_sample":
             if check_spectrometer(spectrometer):
                 continue
@@ -430,13 +431,16 @@ def command_loop():
                 print("!!! Check External Triggering PIN")
                 continue
             # print("Being implemented") #TODO
-
+        
         elif parts[0] == "exit" or parts[0] == "quit":
             if spectrometer:
                 spectrometer.close()
+            if laser:
+                laser.disconnect()
             running = False
         else:
-            print("!!! Invalid command. Enter the 'help' command for usage information")
+            print_cli("!!! Invalid command. Enter the 'help' command for usage information")
+
 
 COMMAND_LIST = ["do_calibration_sample", "help", "exit", "quit", "do_sample", "dump_spectrometer_registers", "connect_laser", "arm_laser", "disarm_laser", "laser_status", "fire_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer", "set_sample_mode"]
 
@@ -448,6 +452,12 @@ def tab_completer(text, state):
                 return cmd
             else:
                 state -= 1
+
+def laser_help(section = "root"):
+    print("Laser help section")
+
+def spectrometer_help(section = "root"):
+    print("Spectrometer help section")
 
 def give_help():
     """Outputs a list of commands to the user for use in interactive mode."""
