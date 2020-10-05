@@ -17,7 +17,7 @@ import serial
 import binascii
 
 import seabreeze
-seabreeze.use('pyseabreeze') # Select the cseabreeze backend for consistency
+seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 
@@ -66,6 +66,12 @@ def dump_settings_register(spec):
         spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">ss",b'\x6B',i),'primary_out')
         output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=3)
         print_cli((binascii.hexlify(i)).decode("ascii") + "\t" + (binascii.hexlify(output[1:])).decode("ascii"))
+
+def query_settings(spec):
+    print_cli("Querying Spectrometer Settings...")
+    spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">s",b'\xFE'),'primary_out')
+    output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=16)
+    pixel_count, integration_time, lamp_enable, trigger_mode, spectral_status, spectra_packets, power_down, packet_count, comm_speed = struct.unpack(">HI?BcB?BxxBx", output) 
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
@@ -260,6 +266,11 @@ def command_loop():
             if check_spectrometer(spectrometer):
                 continue
             dump_settings_register(spectrometer)
+
+        elif c == "spectrometer query_settings":
+            if check_spectrometer(spectrometer):
+                continue
+            query_settings(spectrometer)
 
         elif parts[0:3] == ["spectrometer","set","trigger_delay"]:
             if check_spectrometer(spectrometer):
