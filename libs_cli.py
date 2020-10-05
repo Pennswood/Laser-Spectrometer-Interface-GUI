@@ -14,9 +14,10 @@ import time
 import pickle
 import platform
 import serial
+import binascii
 
 import seabreeze
-seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
+seabreeze.use('pyseabreeze') # Select the cseabreeze backend for consistency
 from seabreeze.spectrometers import Spectrometer
 from seabreeze.cseabreeze._wrapper import SeaBreezeError
 
@@ -64,7 +65,7 @@ def dump_settings_register(spec):
     for i in (b'\x00', b'\x04', b'\x08', b'\x0C', b'\x10', b'\x14', b'\x18', b'\x28', b'\x2C', b'\x38', b'\x3C', b'\x40', b'\x48', b'\x50', b'\x54', b'\x74', b'\x78', b'\x7C', b'\x80'):
         spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">ss",b'\x6B',i),'primary_out')
         output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=3)
-        print_cli(str(i) + "\t" + str(output[1:]))
+        print_cli((binascii.hexlify(i)).decode("ascii") + "\t" + (binascii.hexlify(output[1:])).decode("ascii"))
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
@@ -135,9 +136,9 @@ def set_integration_time(spec, time):
 
 def do_sample(spec, pin):
     """Sets the GPIO pin to high and stores the data from integration."""
-    GPIO.output(pin, GPIO.HIGH)
-    time.sleep(0.01)  # delay for spectrum, can be removed or edited if tested
     GPIO.output(pin, GPIO.LOW)
+    time.sleep(0.01)  # delay for spectrum, can be removed or edited if tested
+    GPIO.output(pin, GPIO.HIGH)
     wavelengths, intensities = spec.spectrum()
     timestamp = str(time.time())  # gets time immediately after integrating
     data = wavelengths, intensities
@@ -296,10 +297,10 @@ def command_loop():
                 print_cli("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
                 continue
 
-            if parts[3] == "NORMAL" or parts[3] == "SOFTWARE" or parts[3] == "EXT_LEVEL" or parts[3] == "EXT_SYNC" or parts[3] == "EXT_EDGE":
+            if parts[3] == "NORMAL" or parts[3] == "EXT_LEVEL" or parts[3] == "EXT_SYNC" or parts[3] == "EXT_EDGE":
                 set_sample_mode(spectrometer, parts[3])
             else:
-                print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+                print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, EXT_SYNC, EXT_LEVEL, EXT_EDGE")
                 continue
 
         elif c == "status":
@@ -449,9 +450,9 @@ def command_loop():
             # print_cli("Being implemented") #TODO
         
         elif c == "do_trigger":
-            GPIO.output(external_trigger_pin, GPIO.HIGH)
-            time.sleep(0.01)
             GPIO.output(external_trigger_pin, GPIO.LOW)
+            time.sleep(0.01)
+            GPIO.output(external_trigger_pin, GPIO.HIGH)
             print_cli("Triggered " + external_trigger_pin + ".") 
         elif c == "exit" or c == "quit":
             if spectrometer:
@@ -597,7 +598,8 @@ def main():
     
     command_log = open(LOG_PATH + "LOG_" + str(int(time.time())) + ".log", "w")
     GPIO.setup(external_trigger_pin, GPIO.OUT)
-
+    GPIO.output(external_trigger_pin, GPIO.HIGH)
+    
     if a.interactive:
         readline.parse_and_bind("tab: complete")
         readline.set_completer(tab_completer)
