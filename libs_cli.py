@@ -47,11 +47,11 @@ def check_spectrometer(spec, complain=True):
         if is_open:
             return False
     if complain:
-        print_cli("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        print_cli("!!! This command requires the spectrometer to be connected! Use 'spectrometer connect' first!")
     return True
 
     # if spec == None:
-    #     print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+    #     print_cli("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
     #     return True
     # return False
 
@@ -59,7 +59,7 @@ def check_laser(laser, complain=True):
     """Helper function that prints an error message if the laser has not been connected yet. Returns True if the laser is NOT connected."""
     if laser == None:
         if complain:
-            print_cli("!!! This command requires the laser to be connected! Use 'connect_laser' first!")
+            print_cli("!!! This command requires the laser to be connected! Use 'laser connect' first!")
         return True
     return False
 
@@ -75,7 +75,7 @@ def set_trigger_delay(spec, t):
     t_nano_seconds = t * 1000 #convert micro->nano seconds
     t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
     data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
-    print(data)
+    print_cli(data)
     spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
     # self.spec.f.spectrometer.set_delay_microseconds(t)
     
@@ -102,10 +102,10 @@ def auto_connect_spectrometer():
 
     # if seabreeze.spectrometers.list_devices():
     #     spec = seabreeze.spectrometers.Spectrometer.from_first_available()
-    #     print("*** Found spectrometer, serial number: " + spec.serial_number)
+    #     print_cli("*** Found spectrometer, serial number: " + spec.serial_number)
     #     return spec
     # else:
-    #     print("!!! No spectrometer autodetected!")
+    #     print_cli("!!! No spectrometer autodetected!")
 
 # No longer doing this due to possible errors when connecting. Cannot connect to the same device through 2 methods.
 #TODO: Implement the below function, currently only autodetection works. probably will use the add_rs232 function in Seabreeze API
@@ -150,7 +150,7 @@ def do_sample(spec, pin):
     wavelengths, intensities = spec.spectrum()
     timestamp = time.time()  # gets time immediately after integrating
     timestamp = str(timestamp) # TODO: create a function to change the timestamp to human readable
-    # print([wavelengths, intensities])   # temporary for quick testing
+    # print_cli([wavelengths, intensities])   # temporary for quick testing
     GPIO.output(pin, GPIO.LOW)
     data = wavelengths, intensities
     filename = str(filename) 
@@ -176,7 +176,7 @@ def load_data(filename):
     """Prints the data in files. Not added in yet"""
     with open(SD_CARD_PATH+filename, 'rb') as file:
         data = pickle.load(file)
-        print(data)
+        print_cli(data)
 
 def save_sample_csv(filename, wavelengths, intensities):
     debug_log("Saving sample as CSV: " + filename + "; len(wavelengths) = " + len(wavelengths) + ", len(intensities) = " + len(intensities))
@@ -260,69 +260,69 @@ def command_loop():
         log_input("?" + c)
         parts = c.split() # split the command up into the command and any arguments
         
-        if parts[0] == "help": # check to see what command we were given
+        if c == "help": # check to see what command we were given
             give_help()
-       
-        elif parts[0] == "do_calibration_sample":
+
+        elif c == "spectrometer calibrate":
             if check_spectrometer(spectrometer):
                 continue
             do_calibration_sample(spectrometer)
  
-        elif parts[0] == "dump_spectrometer_registers":
+        elif c == "spectrometer dump_registers":
             if check_spectrometer(spectrometer):
                 continue
             dump_settings_register(spectrometer)
 
-        elif parts[0] == "set_trigger_delay":
+        elif parts[0:3] == ["spectrometer","set","trigger_delay"]:
             if check_spectrometer(spectrometer):
                 continue
-            if len(parts) < 2:
-                print("!!! Invalid command: Set Trigger Delay command expects at least 1 argument.")
+            if len(parts) < 4:
+                print_cli("!!! Invalid command: Set Trigger Delay command expects at least 1 argument.")
                 continue
             try:
-                t = int(parts[1]) # t is the time in microseconds to delay
+                t = int(parts[3]) # t is the time in microseconds to delay
                 set_trigger_delay(spectrometer, t)
             except ValueError:
-                print("!!! Invalid argument: Set Trigger Delay command expected an integer.")
+                print_cli("!!! Invalid argument: Set Trigger Delay command expected an integer.")
                 continue
 
-        elif parts[0] == "set_integration_time":
+        elif parts[0:3] == ["spectrometer","set","integration_time"]:
             if check_spectrometer(spectrometer):
                 continue
-            if len(parts) < 2:
-                print("!!! Invalid command: Set Integration Time command expects at least 1 argument.")
+            if len(parts) < 4:
+                print_cli("!!! Invalid command: Set Integration Time command expects at least 1 argument.")
                 continue
             try:
-                t = int(parts[1])
+                t = int(parts[3])
                 set_integration_time(spectrometer, t)
             except ValueError:
-                print("!!! Invalid argument: Set Integration Time command expected an integer!")
+                print_cli("!!! Invalid argument: Set Integration Time command expected an integer!")
                 continue
             except SeaBreezeError as e:
-                print("!!! " + str(e))
+                print_cli("!!! " + str(e))
                 continue
 
-        elif parts[0] == "set_sample_mode":
+        elif parts[0:3] == ["spectrometer","set","sample_mode"]:
             if check_spectrometer(spectrometer):
                 continue
-            if len(parts) < 2:
-                print("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
+            if len(parts) < 4:
+                print_cli("!!! Invalid command: Set Sample Mode command expects at least 1 argument.")
                 continue
 
-            if parts[1] == "NORMAL" or parts[1] == "SOFTWARE" or parts[1] == "EXT_LEVEL" or parts[1] == "EXT_SYNC" or parts[1] == "EXT_EDGE":
-                set_sample_mode(spectrometer, parts[1])
+            if parts[3] == "NORMAL" or parts[3] == "SOFTWARE" or parts[3] == "EXT_LEVEL" or parts[3] == "EXT_SYNC" or parts[3] == "EXT_EDGE":
+                set_sample_mode(spectrometer, parts[3])
             else:
-                cli_print("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+                print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, SOFTWARE, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
                 continue
 
-        elif parts[0] == "status":
+        elif c == "status":
             give_status(spectrometer, laser)
             continue
         elif parts[0] == "set_external_trigger_pin":
             if check_spectrometer(spectrometer):
                 continue
             if len(parts) < 2:
-                cli_print("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
+                print_cli("!!! Invalid command: Set external trigger pin command expects at least 1 argument.")
                 continue
             try:
                 pin = parts[1]
@@ -333,13 +333,13 @@ def command_loop():
                 # print("!!! " + str(e))
                 continue
 
-        elif parts[0] == "connect_spectrometer":
-            if len(parts) == 1:
+        elif c == "spectrometer connect":
+            if len(parts) == 2:
                 spectrometer = auto_connect_spectrometer()
-            else:
-                spectrometer = connect_spectrometer(parts[1])
+            elif len(parts) == 3:
+                spectrometer = connect_spectrometer(parts[2])
 
-        elif parts[0] == "connect_laser":
+        elif c == "laser connect":
             port = user_select_port()
             if not port:
                 cli_print("!!! Aborting connect laser.")
@@ -351,88 +351,88 @@ def command_loop():
             cli_print("ID: " + laser.get_laser_ID() + "\n")
             cli_print(str(s))
 
-        elif parts[0] == "arm_laser":
+        elif c == "laser arm":
             if check_laser(laser):
                 continue
             if laser.arm():
-                print("*** Laser ARMED")
+                print_cli("*** Laser ARMED")
 
-        elif parts[0] == "disarm_laser":
+        elif c == "laser disarm":
             if check_laser(laser):
                 continue
             if laser.disarm():
-                print("*** Laser DISARMED")
+                print_cli("*** Laser DISARMED")
 
-        elif parts[0] == "laser_status":
+        elif c == "laser status":
             if check_laser(laser):
-                print("Laser is not connected.")
+                print_cli("Laser is not connected.")
                 continue
             s = laser.get_status()
-            print(s)
+            print_cli(str(s))
 
-        elif parts[0] == "fire_laser":
+        elif c == "laser fire":
             if check_laser(laser):
                 continue
-            print("Being implemented") #TODO
+            print_cli("Being implemented") #TODO
 
-        elif parts[0] == "set_laser_rep_rate": # TODO: Add check to see if this is within the repetition rate.
+        elif parts[0:3] == ["laser","set","rep_rate"]: # TODO: Add check to see if this is within the repetition rate.
             if check_laser(laser):
                 continue
             
-            if len(parts) < 2:
-                print("!!! Set Laser Rep Rate expects an integer argument!")
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Rep Rate expects an integer argument!")
                 continue
             try:
-                rate = int(parts[1])
+                rate = int(parts[3])
                 if rate < 0:
                     raise ValueError("Repetition Rate must be positive!")
                 laser.set_rep_rate(rate)
             except ValueError:
-                print("!!! Set Laser Rep Rate expects a positive integer argument! You did not enter an integer.")
+                print_cli("!!! Set Laser Rep Rate expects a positive integer argument! You did not enter an integer.")
                 continue
             except LaserCommandError as e:
-                print("!!! Error encountered while commanding laser! " + str(e))
+                print_cli("!!! Error encountered while commanding laser! " + str(e))
                 continue
                 
-        elif parts[0] == "set_laser_pulse_width":
+        elif parts[0:3] == ["laser","set","pulse_width"]:
             if check_laser(laser):
                 continue
                 
-            if len(parts) < 2:
-                print("!!! Set Laser Pulse Width expects an integer argument!")
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Pulse Width expects an integer argument!")
                 continue
             try:
-                width = float(parts[1])
+                width = float(parts[3])
                 laser.set_pulse_width(width)
             except ValueError:
-                print("!!! Set Laser Pulse Width expects an integer argument! You did not enter an integer.")
+                print_cli("!!! Set Laser Pulse Width expects an integer argument! You did not enter an integer.")
                 continue
             except LaserCommandError as e:
-                print("!!! Error encountered while commanding laser! " + str(e))
+                print_cli("!!! Error encountered while commanding laser! " + str(e))
                 continue
                 
-        elif parts[0] == "get_laser_fet_temp":
+        elif parts[0:3] == ["laser","get","fet_temp"]:
             if check_laser(laser):
                 continue
             t = laser.get_fet_temp()
-            print("Laser FET temperature: " + str(t))
+            print_cli("Laser FET temperature: " + str(t))
 
-        elif parts[0] == "do_sample":
+        elif c == "do_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
             try:
                 do_sample(spectrometer, external_trigger_pin)
             except SeaBreezeError as e:
-                print("!!! " + str(e))
+                print_cli("!!! " + str(e))
                 continue
             except LaserCommandError as e:
-                print("!!! Error while commanding laser! " + str(e))
+                print_cli("!!! Error while commanding laser! " + str(e))
             except:
-                print("!!! Check External Triggering PIN")
+                print_cli("!!! Check External Triggering PIN")
                 continue
-            # print("Being implemented") #TODO
+            # print_cli("Being implemented") #TODO
         
-        elif parts[0] == "exit" or parts[0] == "quit":
+        elif c == "exit" or c == "quit":
             if spectrometer:
                 spectrometer.close()
             if laser:
@@ -441,17 +441,88 @@ def command_loop():
         else:
             print_cli("!!! Invalid command. Enter the 'help' command for usage information")
 
+#COMMAND_LIST = ["spectrometer calibrate", "help", "exit", "quit", "do_sample", "spectrometer dump_registers", "laser connect", "laser arm", "laser disarm", "laser status", "laser fire", "laser get fet_temp", "set_external_trigger_pin", "laser set pulse_width", "laser set rep_rate", "spectrometer set trigger_delay", "spectrometer connect", "spectrometer set sample_mode"]
 
-COMMAND_LIST = ["do_calibration_sample", "help", "exit", "quit", "do_sample", "dump_spectrometer_registers", "connect_laser", "arm_laser", "disarm_laser", "laser_status", "fire_laser", "get_laser_fet_temp", "set_external_trigger_pin", "set_laser_pulse_width", "set_laser_rep_rate", "set_trigger_delay", "connect_spectrometer", "set_sample_mode"]
+# Root commands allow the user to specify which instrument (laser or spectrometer) they are interacting with, or interact with other aspects of the program
+ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "do_sample", "status"]
 
-# Taken from: https://stackoverflow.com/questions/5637124/tab-completion-in-pythons-raw-input
+# Actions are things that the user can do to the laser and spectrometer
+SPECTROMETER_ACTIONS = ["calibrate", "set", "get", "connect", "status", "dump_registers"]
+LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
+
+# Properties are things that can be get and/or set by the user
+SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay"]
+LASER_PROPERTIES = ["fet_temp", "pulse_width", "rep_rate"]
+
 def tab_completer(text, state):
-    for cmd in COMMAND_LIST:
-        if cmd.startswith(text):
-            if not state:
-                return cmd
-            else:
-                state -= 1
+    text = readline.get_line_buffer()
+    parts = text.split(" ")
+
+    root = None
+    action = None
+    prop = None
+    if parts[0] in ROOT_COMMANDS:
+        root = parts[0]
+        if len(parts) > 1:
+            if root == "laser":
+                if parts[1] in LASER_ACTIONS:
+                    action = parts[1]
+            elif root == "spectrometer":
+                if parts[1] in SPECTROMETER_ACTIONS:
+                    action = parts[1]
+
+    if root == None:
+        for cmd in ROOT_COMMANDS:
+            if cmd.startswith(text):
+                if not state:
+                    return cmd
+                else:
+                    state -= 1
+
+    elif not action and root == "laser":
+        if len(parts) < 2:
+            parts[1] = ""
+
+        for a in LASER_ACTIONS:
+            if a.startswith(parts[1]):
+                if not state:
+                    return a
+                else:
+                    state -= 1
+
+    elif not action and root == "spectrometer":
+        if len(parts) < 2:
+            parts[1] = ""
+
+        for a in SPECTROMETER_ACTIONS:
+            if a.startswith(parts[1]):
+                if not state:
+                    return a
+                else:
+                    state -= 1
+
+    elif action in ["get", "set"] and root == "laser":
+        if len(parts) < 3:
+            parts[2] = ""
+
+        for p in LASER_PROPERTIES:
+            if p.startswith(parts[2]):
+                if not state:
+                    return p
+                else:
+                    state -= 1
+    elif action in ["get", "set"] and root == "spectrometer":
+        if len(parts) < 3:
+            parts[2] = ""
+
+        for p in SPECTROMETER_PROPERTIES:
+            if p.startswith(parts[2]):
+                if not state:
+                    return p
+                else:
+                    state -= 1
+    else:
+        return
 
 def laser_help(section = "root"):
     print("Laser help section")
