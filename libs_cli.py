@@ -71,7 +71,7 @@ def query_settings(spec):
     print_cli("Querying Spectrometer Settings...")
     spec.f.raw_usb_bus_access.raw_usb_write(struct.pack(">s",b'\xFE'),'primary_out')
     output = spec.f.raw_usb_bus_access.raw_usb_read(endpoint='primary_in', buffer_length=16)
-    pixel_count, integration_time, lamp_enable, trigger_mode, spectral_status, spectra_packets, power_down, packet_count, comm_speed = struct.unpack(">HI?BcB?BxxBx", output) 
+    pixel_count, integration_time, lamp_enable, trigger_mode, spectral_status, spectra_packets, power_down, packet_count, comm_speed = struct.unpack("<HI?BcB?BxxBx", output) 
     print_cli("Pixel Count: " + str(pixel_count))
     print_cli("Integration_time: " + str(integration_time))
     print_cli("Lamp Enable: " + str(lamp_enable))
