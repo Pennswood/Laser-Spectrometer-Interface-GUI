@@ -487,11 +487,11 @@ def command_loop():
 ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", "status", "do_libs_sample", "do_trigger"]
 
 # Actions are things that the user can do to the laser and spectrometer
-SPECTROMETER_ACTIONS = ["spectrum", "set", "get", "connect", "status", "dump_registers"]
+SPECTROMETER_ACTIONS = ["spectrum", "set", "get", "connect", "status", "dump_registers", "query_settings"]
 LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
 
 # Properties are things that can be get and/or set by the user
-SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay", "spectrum"]
+SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay", "integration_time"]
 LASER_PROPERTIES = ["diode_current", "energy_mode", "fet_temp", "pulse_width", "rep_rate"]
 ROOT_PROPERTIES = ["external_trigger_pin"]
 
