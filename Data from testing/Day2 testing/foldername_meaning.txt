@@ -1,8 +1,0 @@
-icno = incandescent light without optics
-ico = incandescent light with optics
-lo = lizard light with optics
-    310 - saturated data (useless data) above 310 nm
-    350 - saturated data (useless data above 350)
-lno = lizard light without optics
-    310 - saturated data (useless data) above 310 nm
-    350 - saturated data (useless data above 350)
