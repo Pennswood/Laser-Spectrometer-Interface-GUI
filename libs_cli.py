@@ -256,6 +256,19 @@ def log_input(txt):
     global command_log
     command_log.write(str(int(time.time())) + "?:" + txt + "\n")
 
+def set_integration_time(spec, time):
+    """Sets the integration time of the spectrometer. Returns True on success, False otherwise."""
+    spec.integration_time_micros(time)
+    print("*** Integration time set to " + str(time) + " microseconds.")
+    return True
+    
+def check_spectrometer(spec):
+    """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
+    if spec == None:
+        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        return True
+    return False
+
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin
     while running:
@@ -454,6 +467,14 @@ def command_loop():
             t = laser.get_fet_temp()
             print_cli("Laser FET temperature: " + str(t))
 
+        elif parts[0] == "shot_count_check":
+            shot_count = laser.get_system_shot_count()
+            print("The laser shot count is at " + shot_count + " shots.")
+        
+        elif parts[0] == "diode_current_check":
+            diode_current = laser.get_diode_current()
+            print("The laser's diode current is " + diode_current + " Amps")
+
         elif c == "do_libs_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
@@ -600,6 +621,8 @@ def give_help():
     print("\tset_external_trigger_pin PIN\t\tSet the external trigger pin for the spectrometer. PIN is a string.")
     print("\tdo_sample \t\tStarts integration and obtains the sample data.")
     print("\tdump_spectrometer_registers\t\tRequests and displays the settings register on the spectrometer.")
+    print("\tshot_count_check\t\tReturns the amount of times the laser has shot.")
+    print("\tdiode_current_check\t\tReturns the laser's current diode current in Amps")
     print("\nLASER")
     print("\tconnect_laser [DEV]\t\tInitialize connection with the laser using DEV device file.")
 
