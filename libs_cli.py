@@ -31,6 +31,8 @@ from ujlaser.lasercontrol import Laser, LaserCommandError
 running = True
 verbose = False
 spectrometer = None
+spectrometerMode = "NORMAL"
+software_trigger_delay = 0
 laser = None
 
 external_trigger_pin = "P8_26"
@@ -84,11 +86,14 @@ def query_settings(spec):
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
-    t_nano_seconds = t * 1000 #convert micro->nano seconds
-    t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
-    data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
-    spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
-    # self.spec.f.spectrometer.set_delay_microseconds(t)
+    if spectrometerMode == "NORMAL":
+        software_trigger_delay = t
+    else: 
+        t_nano_seconds = t * 1000 #convert micro->nano seconds
+        t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
+        data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
+        spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
+        # self.spec.f.spectrometer.set_delay_microseconds(t)
     
 def set_external_trigger_pin(pin):
     """Sets the GPIO pin to use for external triggering."""
@@ -127,12 +132,17 @@ def set_sample_mode(spec, mode):
     # ^ should be correct for the seabreeze library v1.1.0 (at least 0 and 3 should be which are the ones that matter)
     if mode == "NORMAL":
         i = 0
+        spectrometerMode = "NORMAL"
+        set_integration_time(spec, time=5) #TODO make sure this is the right value, I'm not sure
     elif mode == "EXT_LEVEL":
         i = 1
+        spectrometerMode = "EXT_LEVEL"
     elif mode == "EXT_SYNC":
         i = 2
+        spectrometerMode = "EXT_SYNC"
     elif mode == "EXT_EDGE":
         i = 3
+        spectrometerMode = "EXT_EDGE"
 
     try:
         spec.trigger_mode(i)
@@ -595,6 +605,8 @@ def give_help():
     print("\nSPECTROMETER")
     print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is currently not available and autodetection will be used instead.")
     print("\tset_sample_mode MODE\t\t\tSet the trigger mode of the spectrometer, possible values are: NORMAL, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+    print("\t\t\t\tIf setting trigger from EXT to NORMAL, it is recommended to restart your beaglebone in case of issues.")
+    print("\t\t\t\tWhen set to NORMAL, integration time default set to 5")
     print("\tset_trigger_delay TIME\t\tSet the trigger delay for the spectrometer. TIME is in microseconds.")
     print("\tset_integration_time TIME\t\tSet the Integration Time/Period for the spectrometer. TIME is in microseconds.")
     print("\tset_external_trigger_pin PIN\t\tSet the external trigger pin for the spectrometer. PIN is a string.")
