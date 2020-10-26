@@ -32,7 +32,6 @@ running = True
 verbose = False
 spectrometer = None
 spectrometerMode = "NORMAL"
-software_trigger_delay = 0
 laser = None
 
 external_trigger_pin = "P8_26"
@@ -133,7 +132,7 @@ def set_sample_mode(spec, mode):
     if mode == "NORMAL":
         i = 0
         spectrometerMode = "NORMAL"
-        set_integration_time(spec, time=5) #TODO make sure this is the right value, I'm not sure
+        set_integration_time(spec, time=5000000) # default integration time to 5 seconds
     elif mode == "EXT_LEVEL":
         i = 1
         spectrometerMode = "EXT_LEVEL"
@@ -159,11 +158,28 @@ def set_integration_time(spec, time):
     print_cli("*** Integration time set to " + str(time) + " microseconds.")
     return True
 
-def do_sample(spec, pin):
-    """Sets the GPIO pin to high and stores the data from integration."""
+def do_trigger(pin):
     GPIO.output(pin, GPIO.LOW)
     time.sleep(0.01)  # delay for spectrum, can be removed or edited if tested
     GPIO.output(pin, GPIO.HIGH)
+
+def do_sample(spec, mode, integration_time, laser_delay, pin):
+    """Sets the GPIO pin to high and stores the data from integration."""
+    if mode == "EXT_EDGE":
+        do_trigger(pin)
+    else if mode == "NORMAL":
+        spec.integration_time_micros(integration_time)        
+        spec.spectrum()
+        spec.spectrum()
+        spec.spectrum()
+
+        t1 = threading.Thread(target=spec.spectrum, args=(integration_time,))
+        t2 = threading.Timer(0.5, do_trigger(pin))
+        t1.start()
+        t2.start()
+    else:  # no other modes planning to be used
+        print_cli("This mode is currently unavailable, please try EXT_EDGE or NORMAL mode.")
+        return None
     wavelengths, intensities = spec.spectrum()
     timestamp = str(time.time())  # gets time immediately after integrating
     data = wavelengths, intensities
@@ -268,6 +284,11 @@ def log_input(txt):
 
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin
+    # make the below global variables? currently moved to here since it seems unnecessary
+    integration_time = 50000000
+    mode = "NORMAL"
+    software_trigger_delay = 0  # delays laser firing time?? is this what it means?
+
     while running:
         c = input("?").strip() # Get a command from the user and remove any extra whitespace
         log_input("?" + c)
@@ -300,6 +321,7 @@ def command_loop():
             try:
                 t = int(parts[3]) # t is the time in microseconds to delay
                 set_trigger_delay(spectrometer, t)
+                software_trigger_delay = t
             except ValueError:
                 print_cli("!!! Invalid argument: Set Trigger Delay command expected an integer.")
                 continue
@@ -313,6 +335,7 @@ def command_loop():
             try:
                 t = int(parts[3])
                 set_integration_time(spectrometer, t)
+                integration_time = t
             except ValueError:
                 print_cli("!!! Invalid argument: Set Integration Time command expected an integer!")
                 continue
@@ -329,6 +352,7 @@ def command_loop():
 
             if parts[3] == "NORMAL" or parts[3] == "EXT_LEVEL" or parts[3] == "EXT_SYNC" or parts[3] == "EXT_EDGE":
                 set_sample_mode(spectrometer, parts[3])
+                mode = parts[3]
             else:
                 print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, EXT_SYNC, EXT_LEVEL, EXT_EDGE")
                 continue
@@ -468,7 +492,7 @@ def command_loop():
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
             try:
-                do_sample(spectrometer, external_trigger_pin)
+                do_sample(spectrometer, mode, integration_time, software_trigger_delay, external_trigger_pin)
             except SeaBreezeError as e:
                 print_cli("!!! " + str(e))
                 continue
@@ -480,9 +504,7 @@ def command_loop():
             # print_cli("Being implemented") #TODO
         
         elif c == "do_trigger":
-            GPIO.output(external_trigger_pin, GPIO.LOW)
-            time.sleep(0.01)
-            GPIO.output(external_trigger_pin, GPIO.HIGH)
+            do_trigger(external_trigger_pin)
             print_cli("Triggered " + external_trigger_pin + ".") 
         elif c == "exit" or c == "quit":
             if spectrometer:
