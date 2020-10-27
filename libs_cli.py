@@ -15,6 +15,7 @@ import pickle
 import platform
 import serial
 import binascii
+import math
 
 import seabreeze
 seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
@@ -33,6 +34,7 @@ verbose = False
 spectrometer = None
 spectrometerMode = "NORMAL"
 laser = None
+laserSingleShot = True
 
 external_trigger_pin = "P8_26"
 devices = []
@@ -132,7 +134,9 @@ def set_sample_mode(spec, mode):
     if mode == "NORMAL":
         i = 0
         spectrometerMode = "NORMAL"
-        set_integration_time(spec, time=5000000) # default integration time to 5 seconds
+        set_integration_time(spec, 5000000) # default integration time to 5 seconds
+        integration_time = 5000000
+
     elif mode == "EXT_LEVEL":
         i = 1
         spectrometerMode = "EXT_LEVEL"
@@ -155,6 +159,8 @@ def set_sample_mode(spec, mode):
 def set_integration_time(spec, time):
     """Sets the integration time of the spectrometer. Returns True on success, False otherwise."""
     spec.integration_time_micros(time)
+    integration_time = time
+
     print_cli("*** Integration time set to " + str(time) + " microseconds.")
     return True
 
@@ -283,7 +289,7 @@ def log_input(txt):
     command_log.write(str(int(time.time())) + "?:" + txt + "\n")
 
 def command_loop():
-    global running, spectrometer, laser, external_trigger_pin
+    global running, spectrometer, laser, external_trigger_pin, laserSingleShot
     # make the below global variables? currently moved to here since it seems unnecessary
     integration_time = 50000000
     mode = "NORMAL"
@@ -439,7 +445,39 @@ def command_loop():
             except LaserCommandError as e:
                 print_cli("!!! Error encountered while commanding laser! " + str(e))
                 continue
-                
+        elif parts[0:3] == ["laser","set","pulse_mode"]:
+            if check_laser(laser):
+                continue
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Pulse Mode expects a boolean \'True\' or \'False\' argument!")
+                continue
+            else:
+                if parts[4] == "1" or parts[4].lower() == "f" or parts[4].lower() == "false" or parts[4].lower() == "single shot":
+                    laser.set_pulse_mode(1)
+                    laserSingleShot = True
+                elif parts[4] == "2" or parts[4].lower() == "t" or parts[4].lower() == "true" or parts[4].lower() == "burst":
+                    laser.set_pulse_mode(2)
+                    laserSingleShot = False
+                elif parts[4] == "0" or parts[4].lower() == "continuous":
+                    laser.set_pulse_mode(0)
+                    laserSingleShot = False
+        elif parts[0:3] == ["laser","set","burst_count"]:
+            if check_laser(laser):
+                continue
+
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Burst Count expects an integer argument!")
+                continue
+            if laserSingleShot:
+                print_cli("!!! Please set Laser Pulse Mode to burst or continuous before setting the burst count!")
+            try:
+                burst_count = int(parts[3])
+                if burst_count < 0:
+                    raise ValueError("Repetition Rate must be positive!")
+                laser.set_burst_count(burst_count)
+            except ValueError:
+                print_cli("!!! Set Laser Burst Count expects a positive integer argument! You did not enter an integer.")
+                continue
         elif parts[0:3] == ["laser","set","pulse_width"]:
             if check_laser(laser):
                 continue
