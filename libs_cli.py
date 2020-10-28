@@ -426,6 +426,10 @@ def command_loop():
             if check_laser(laser):
                 continue
             print_cli("Being implemented") #TODO
+        elif c == "laser stop":
+            if check_laser(laser):
+                continue
+            laser.emergency_stop()
 
         elif parts[0:3] == ["laser","set","rep_rate"]: # TODO: Add check to see if this is within the repetition rate.
             if check_laser(laser):
@@ -525,10 +529,6 @@ def command_loop():
                 continue
             t = laser.get_fet_temp()
             print_cli("Laser FET temperature: " + str(t))
-        elif parts[0:3] == ["laser","stop"]:
-            if check_laser(laser):
-                continue
-            laser.emergency_stop()
 
         elif c == "do_libs_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
@@ -562,7 +562,7 @@ ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", 
 
 # Actions are things that the user can do to the laser and spectrometer
 SPECTROMETER_ACTIONS = ["spectrum", "set", "get", "connect", "status", "dump_registers", "query_settings"]
-LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
+LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get", "stop"]
 
 # Properties are things that can be get and/or set by the user
 SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay", "integration_time"]
