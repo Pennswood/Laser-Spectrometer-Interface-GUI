@@ -525,6 +525,10 @@ def command_loop():
                 continue
             t = laser.get_fet_temp()
             print_cli("Laser FET temperature: " + str(t))
+        elif parts[0:3] == ["laser","stop"]:
+            if check_laser(laser):
+                continue
+            laser.emergency_stop()
 
         elif c == "do_libs_sample":
             if check_laser(laser) or check_spectrometer(spectrometer):
