@@ -173,7 +173,7 @@ def do_sample(spec, mode, integration_time, laser_delay, pin):
     """Sets the GPIO pin to high and stores the data from integration."""
     if mode == "EXT_EDGE":
         do_trigger(pin)
-    else if mode == "NORMAL":
+    elif mode == "NORMAL":
         spec.integration_time_micros(integration_time)        
         spec.spectrum()
         spec.spectrum()
@@ -399,6 +399,9 @@ def command_loop():
             laser = Laser()
             laser.connect(port)
             s = laser.get_status()
+            if not s:
+                cli_print("!!! Failed to connect to laser!")
+                continue
             cli_print("Laser Status:")
             cli_print("ID: " + laser.get_laser_ID() + "\n")
             cli_print(str(s))
