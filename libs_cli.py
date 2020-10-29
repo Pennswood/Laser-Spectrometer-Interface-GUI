@@ -304,7 +304,7 @@ def check_spectrometer(spec):
 def command_loop():
     global running, spectrometer, laser, external_trigger_pin, laserSingleShot
     # make the below global variables? currently moved to here since it seems unnecessary
-    integration_time = 50000000
+    integration_time = 6000 # This is the default value the spectrometer is set to 
     mode = "NORMAL"
     software_trigger_delay = 0  # delays laser firing time?? is this what it means?
 
@@ -375,6 +375,12 @@ def command_loop():
             else:
                 print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, EXT_SYNC, EXT_LEVEL, EXT_EDGE")
                 continue
+
+        elif parts[0:3] == ["spectrometer", "get", "integration_time"]:
+            if check_spectrometer(spectrometer):
+                continue
+            print_cli("Spectrometer integration time set to " + str(integration_time) + " microseconds.")
+            continue
 
         elif c == "status":
             give_status(spectrometer, laser)
