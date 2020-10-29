@@ -428,15 +428,21 @@ def command_loop():
         elif c == "laser arm":
             if check_laser(laser):
                 continue
-            if laser.arm():
-                print_cli("*** Laser ARMED")
-
+            try:
+                if laser.arm():
+                    print_cli("*** Laser ARMED")
+            except LaserCommandError as e:
+                print_cli("!!! Error encountered while arming laser: " + str(e))
+                continue
         elif c == "laser disarm":
             if check_laser(laser):
                 continue
-            if laser.disarm():
-                print_cli("*** Laser DISARMED")
-
+            try:
+                if laser.disarm():
+                    print_cli("*** Laser DISARMED")
+            except LaserCommandError as e:
+                print_cli("!!! Error encountered while disarming laser: " + str(e))
+                continue
         elif c == "laser status":
             if check_laser(laser):
                 print_cli("Laser is not connected.")
