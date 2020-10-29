@@ -15,6 +15,7 @@ import pickle
 import platform
 import serial
 import binascii
+import math
 
 import seabreeze
 seabreeze.use('cseabreeze') # Select the cseabreeze backend for consistency
@@ -31,7 +32,9 @@ from ujlaser.lasercontrol import Laser, LaserCommandError
 running = True
 verbose = False
 spectrometer = None
+spectrometerMode = "NORMAL"
 laser = None
+laserSingleShot = True
 
 external_trigger_pin = "P8_26"
 devices = []
@@ -84,11 +87,14 @@ def query_settings(spec):
 
 def set_trigger_delay(spec, t):
     """Sets the trigger delay of the spectrometer. Can be from 0 to 32.7ms in increments of 500ns. t is in microseconds"""
-    t_nano_seconds = t * 1000 #convert micro->nano seconds
-    t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
-    data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
-    spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
-    # self.spec.f.spectrometer.set_delay_microseconds(t)
+    if spectrometerMode == "NORMAL":
+        software_trigger_delay = t
+    else: 
+        t_nano_seconds = t * 1000 #convert micro->nano seconds
+        t_clock_cycles = t//500 # number of clock cycles to wait. 500ns per clock cycle b/c the clock runs at 2MHz
+        data = struct.pack("<ssH",b'\x6A',b'\x28',t_clock_cycles)
+        spec.f.raw_usb_bus_access.raw_usb_write(data,'primary_out')
+        # self.spec.f.spectrometer.set_delay_microseconds(t)
     
 def set_external_trigger_pin(pin):
     """Sets the GPIO pin to use for external triggering."""
@@ -127,12 +133,19 @@ def set_sample_mode(spec, mode):
     # ^ should be correct for the seabreeze library v1.1.0 (at least 0 and 3 should be which are the ones that matter)
     if mode == "NORMAL":
         i = 0
+        spectrometerMode = "NORMAL"
+        set_integration_time(spec, 5000000) # default integration time to 5 seconds
+        integration_time = 5000000
+
     elif mode == "EXT_LEVEL":
         i = 1
+        spectrometerMode = "EXT_LEVEL"
     elif mode == "EXT_SYNC":
         i = 2
+        spectrometerMode = "EXT_SYNC"
     elif mode == "EXT_EDGE":
         i = 3
+        spectrometerMode = "EXT_EDGE"
 
     try:
         spec.trigger_mode(i)
@@ -146,14 +159,33 @@ def set_sample_mode(spec, mode):
 def set_integration_time(spec, time):
     """Sets the integration time of the spectrometer. Returns True on success, False otherwise."""
     spec.integration_time_micros(time)
+    integration_time = time
+
     print_cli("*** Integration time set to " + str(time) + " microseconds.")
     return True
 
-def do_sample(spec, pin):
-    """Sets the GPIO pin to high and stores the data from integration."""
+def do_trigger(pin):
     GPIO.output(pin, GPIO.LOW)
     time.sleep(0.01)  # delay for spectrum, can be removed or edited if tested
     GPIO.output(pin, GPIO.HIGH)
+
+def do_sample(spec, mode, integration_time, laser_delay, pin):
+    """Sets the GPIO pin to high and stores the data from integration."""
+    if mode == "EXT_EDGE":
+        do_trigger(pin)
+    elif mode == "NORMAL":
+        spec.integration_time_micros(integration_time)        
+        spec.spectrum()
+        spec.spectrum()
+        spec.spectrum()
+
+        t1 = threading.Thread(target=spec.spectrum, args=(integration_time,))
+        t2 = threading.Timer(0.5, do_trigger(pin))
+        t1.start()
+        t2.start()
+    else:  # no other modes planning to be used
+        print_cli("This mode is currently unavailable, please try EXT_EDGE or NORMAL mode.")
+        return None
     wavelengths, intensities = spec.spectrum()
     timestamp = str(time.time())  # gets time immediately after integrating
     data = wavelengths, intensities
@@ -257,7 +289,12 @@ def log_input(txt):
     command_log.write(str(int(time.time())) + "?:" + txt + "\n")
 
 def command_loop():
-    global running, spectrometer, laser, external_trigger_pin
+    global running, spectrometer, laser, external_trigger_pin, laserSingleShot
+    # make the below global variables? currently moved to here since it seems unnecessary
+    integration_time = 50000000
+    mode = "NORMAL"
+    software_trigger_delay = 0  # delays laser firing time?? is this what it means?
+
     while running:
         c = input("?").strip() # Get a command from the user and remove any extra whitespace
         log_input("?" + c)
@@ -290,6 +327,7 @@ def command_loop():
             try:
                 t = int(parts[3]) # t is the time in microseconds to delay
                 set_trigger_delay(spectrometer, t)
+                software_trigger_delay = t
             except ValueError:
                 print_cli("!!! Invalid argument: Set Trigger Delay command expected an integer.")
                 continue
@@ -303,6 +341,7 @@ def command_loop():
             try:
                 t = int(parts[3])
                 set_integration_time(spectrometer, t)
+                integration_time = t
             except ValueError:
                 print_cli("!!! Invalid argument: Set Integration Time command expected an integer!")
                 continue
@@ -319,6 +358,7 @@ def command_loop():
 
             if parts[3] == "NORMAL" or parts[3] == "EXT_LEVEL" or parts[3] == "EXT_SYNC" or parts[3] == "EXT_EDGE":
                 set_sample_mode(spectrometer, parts[3])
+                mode = parts[3]
             else:
                 print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, EXT_SYNC, EXT_LEVEL, EXT_EDGE")
                 continue
@@ -359,6 +399,9 @@ def command_loop():
             laser = Laser()
             laser.connect(port)
             s = laser.get_status()
+            if not s:
+                cli_print("!!! Failed to connect to laser!")
+                continue
             cli_print("Laser Status:")
             cli_print("ID: " + laser.get_laser_ID() + "\n")
             cli_print(str(s))
@@ -386,6 +429,10 @@ def command_loop():
             if check_laser(laser):
                 continue
             print_cli("Being implemented") #TODO
+        elif c == "laser stop":
+            if check_laser(laser):
+                continue
+            laser.emergency_stop()
 
         elif parts[0:3] == ["laser","set","rep_rate"]: # TODO: Add check to see if this is within the repetition rate.
             if check_laser(laser):
@@ -405,7 +452,39 @@ def command_loop():
             except LaserCommandError as e:
                 print_cli("!!! Error encountered while commanding laser! " + str(e))
                 continue
-                
+        elif parts[0:3] == ["laser","set","pulse_mode"]:
+            if check_laser(laser):
+                continue
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Pulse Mode expects a boolean \'True\' or \'False\' argument!")
+                continue
+            else:
+                if parts[4] == "1" or parts[4].lower() == "f" or parts[4].lower() == "false" or parts[4].lower() == "single shot":
+                    laser.set_pulse_mode(1)
+                    laserSingleShot = True
+                elif parts[4] == "2" or parts[4].lower() == "t" or parts[4].lower() == "true" or parts[4].lower() == "burst":
+                    laser.set_pulse_mode(2)
+                    laserSingleShot = False
+                elif parts[4] == "0" or parts[4].lower() == "continuous":
+                    laser.set_pulse_mode(0)
+                    laserSingleShot = False
+        elif parts[0:3] == ["laser","set","burst_count"]:
+            if check_laser(laser):
+                continue
+
+            if len(parts) < 4:
+                print_cli("!!! Set Laser Burst Count expects an integer argument!")
+                continue
+            if laserSingleShot:
+                print_cli("!!! Please set Laser Pulse Mode to burst or continuous before setting the burst count!")
+            try:
+                burst_count = int(parts[3])
+                if burst_count < 0:
+                    raise ValueError("Repetition Rate must be positive!")
+                laser.set_burst_count(burst_count)
+            except ValueError:
+                print_cli("!!! Set Laser Burst Count expects a positive integer argument! You did not enter an integer.")
+                continue
         elif parts[0:3] == ["laser","set","pulse_width"]:
             if check_laser(laser):
                 continue
@@ -458,7 +537,7 @@ def command_loop():
             if check_laser(laser) or check_spectrometer(spectrometer):
                 continue
             try:
-                do_sample(spectrometer, external_trigger_pin)
+                do_sample(spectrometer, mode, integration_time, software_trigger_delay, external_trigger_pin)
             except SeaBreezeError as e:
                 print_cli("!!! " + str(e))
                 continue
@@ -470,9 +549,7 @@ def command_loop():
             # print_cli("Being implemented") #TODO
         
         elif c == "do_trigger":
-            GPIO.output(external_trigger_pin, GPIO.LOW)
-            time.sleep(0.01)
-            GPIO.output(external_trigger_pin, GPIO.HIGH)
+            do_trigger(external_trigger_pin)
             print_cli("Triggered " + external_trigger_pin + ".") 
         elif c == "exit" or c == "quit":
             if spectrometer:
@@ -488,7 +565,7 @@ ROOT_COMMANDS = ["help", "exit", "quit", "laser", "spectrometer", "set", "get", 
 
 # Actions are things that the user can do to the laser and spectrometer
 SPECTROMETER_ACTIONS = ["spectrum", "set", "get", "connect", "status", "dump_registers", "query_settings"]
-LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get"]
+LASER_ACTIONS = ["connect", "status", "arm", "disarm", "fire", "set", "get", "stop"]
 
 # Properties are things that can be get and/or set by the user
 SPECTROMETER_PROPERTIES = ["sample_mode", "trigger_delay", "integration_time"]
@@ -595,6 +672,8 @@ def give_help():
     print("\nSPECTROMETER")
     print("\tconnect_spectrometer [DEV]\tInitialize connection with the spectrometer using DEV device file. DEV is currently not available and autodetection will be used instead.")
     print("\tset_sample_mode MODE\t\t\tSet the trigger mode of the spectrometer, possible values are: NORMAL, EXT_LEVEL, EXT_SYNC, EXT_EDGE")
+    print("\t\t\t\tIf setting trigger from EXT to NORMAL, it is recommended to restart your beaglebone in case of issues.")
+    print("\t\t\t\tWhen set to NORMAL, integration time default set to 5")
     print("\tset_trigger_delay TIME\t\tSet the trigger delay for the spectrometer. TIME is in microseconds.")
     print("\tset_integration_time TIME\t\tSet the Integration Time/Period for the spectrometer. TIME is in microseconds.")
     print("\tset_external_trigger_pin PIN\t\tSet the external trigger pin for the spectrometer. PIN is a string.")
