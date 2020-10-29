@@ -9,6 +9,7 @@ run on a BeagleBone Black.
 import struct
 import pathlib
 import readline
+import threading
 from argparse import ArgumentParser
 import time
 import pickle
@@ -180,7 +181,7 @@ def do_sample(spec, mode, integration_time, laser_delay, pin):
         spec.spectrum()
 
         t1 = threading.Thread(target=spec.spectrum, args=(integration_time,))
-        t2 = threading.Timer(0.5, do_trigger(pin))
+        t2 = threading.Timer(0.5, do_trigger, [pin])
         t1.start()
         t2.start()
     else:  # no other modes planning to be used
