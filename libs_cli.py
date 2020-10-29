@@ -376,7 +376,7 @@ def command_loop():
                 print_cli("!!! Invalid argument: Set Sample Mode command expected one of: NORMAL, EXT_SYNC, EXT_LEVEL, EXT_EDGE")
                 continue
 
-        elif parts[0:3] == ["spectrometer", "get", "integration_time"]:
+        elif c == "spectrometer get integration_time":
             if check_spectrometer(spectrometer):
                 continue
             print_cli("Spectrometer integration time set to " + str(integration_time) + " microseconds.")
