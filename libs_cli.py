@@ -172,6 +172,8 @@ def do_trigger(pin):
 
 def do_sample(spec, mode, integration_time, laser_delay, pin):
     """Sets the GPIO pin to high and stores the data from integration."""
+    wavelengths = []
+    intensities = []
     if mode == "EXT_EDGE":
         do_trigger(pin)
     elif mode == "NORMAL":
@@ -180,14 +182,12 @@ def do_sample(spec, mode, integration_time, laser_delay, pin):
         spec.spectrum()
         spec.spectrum()
 
-        t1 = threading.Thread(target=spec.spectrum, args=(integration_time,))
-        t2 = threading.Timer(0.5, do_trigger, [pin])
+        t1 = threading.Timer(0.5, do_trigger, [pin])
         t1.start()
-        t2.start()
+        wavelengths, intensities = spec.spectrum()
     else:  # no other modes planning to be used
         print_cli("This mode is currently unavailable, please try EXT_EDGE or NORMAL mode.")
         return None
-    wavelengths, intensities = spec.spectrum()
     timestamp = str(time.time())  # gets time immediately after integrating
     data = wavelengths, intensities
     with open(SAMPLES_PATH + str(timestamp) + "_SAMPLE.pickle", 'ab') as file:
