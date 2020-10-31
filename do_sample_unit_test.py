@@ -10,7 +10,10 @@ class TestDoSample(unittest.TestCase):
         libs_cli.command_log = MockLog()
         assert libs_cli.do_sample(spec, "RANDOM", 5, 4, 10) == None
         libs_cli.do_sample(spec, "NORMAL", 5, 4, 10)
-
+    def test_command_loop(self):
+        libs_cli.command_log = MockLog()
+        libs_cli.laser = MockLaser()
+        libs_cli.command_loop()
 class MockSpec():
     def __init__(self):
         global stage_sleep_time, sleep_time
@@ -32,6 +35,18 @@ class MockSpec():
 class MockLog():
     def write(self, text):
         print(text)
+class MockLaser():
+    def set_rep_rate(self, rate):
+        print("Rep rate set to : " + str(rate))
+
+    def set_burst_count(self, rate):
+        print("Bust count set to : " + str(rate))
+    def connect(self, port):
+        print("Connected to port: " + str(port))
+    def status(self):
+        return "Status"
+    def emergency_stop(self):
+        print("Laser stopped")
 
 if __name__ == "__main__":
     unittest.main()
