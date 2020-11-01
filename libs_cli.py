@@ -295,10 +295,11 @@ def set_integration_time(spec, time):
     print("*** Integration time set to " + str(time) + " microseconds.")
     return True
     
-def check_spectrometer(spec):
+def check_spectrometer(spec, complain=True):
     """Helper function that prints an error message if the spectrometer has not been connected yet. Returns True if the spectrometer is NOT connected."""
     if spec == None:
-        print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
+        if complain:
+            print("!!! This command requires the spectrometer to be connected! Use 'connect_spectrometer' first!")
         return True
     return False
 
