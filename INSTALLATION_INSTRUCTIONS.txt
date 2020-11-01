@@ -1,0 +1,25 @@
+How to Install onto BeagleBone Black:
+
+- Remote into the Beagle Bone Black 
+	- Either via PuTTY SSH or via serial terminal
+	- If connecting via another Linux device, you can also get a serial console by: minicom -D /dev/ttyACM0
+- Ensure that Python 3.5 is installed on the Beagle Bone Black
+- Connect BBB to the internet through internet sharing with your PC
+	In linux, you will have to disable your firewall (ufw), and enable ipv4 forwarding:
+	- Enable ipv4 forwarding: echo "1" >> /proc/sys/net/ipv4/ip_forward
+	- Enable routing rules: iptables --table nat --append POSTROUTING --out-interface $wifi_interface -j MASQUERADE
+				iptables --append FORWARD --in-interface $beagle_bone_interface -j ACCEPT
+- Setup DNS servers on the BBB:
+	- Edit /etc/resolv.conf, add the following line: nameserver 8.8.8.8
+- Install the ujlaser library
+	- Clone the laser control library, ujlaser: git clone https://github.com/nschaffin/OASIS-laser.git
+	- cd OASIS-laser
+	- pip install -r requirements.txt
+	- pip install .
+- Install the Linear Algebra subsystem:
+	- sudo apt-get install -y libatlas3-base libatlas-base-dev
+- Install other python package requirements:
+	- cd into this directory (the Laser-Spectrometer-Interface-GUI directory)
+	- pip install -r requirements.txt
+- Install the udev rules for the spectrometer
+	- sudo seabreeze_os_setup

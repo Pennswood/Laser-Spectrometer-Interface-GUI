@@ -4,11 +4,13 @@ python-seabreeze spectroscopy and sensor library demo, written as a proof of con
 Designed as a proof of concept for python GUI controls for sample aquisition and processing.
 
 # Requirements
-Python: Version 3.7 (NOTE: matplotlib does not currently support python 3.8 and above)
+Python: Version 3.5 
+
+(NOTE: matplotlib does not currently support python 3.8 and above)
 
 To install the libraries below, just run: `pip install -r requirements.txt`  
 
-`matplotlib`: version 3.2.0rc3 or higher
+`matplotlib`: version 3.2.0rc3 or higher. Note: matplotlib is NOT required for the command line interface.
 
 `numpy`: version 1.18.1 or higher
 
@@ -19,6 +21,9 @@ To install the libraries below, just run: `pip install -r requirements.txt`
 # Usage
 To open up the control UI, run: 
 `python3 core_ui.py`
+
+To open up the command line interface, run:
+`python3 libs_cli.py`
 
 # Sources
 Code taken from Github user MGPSU's seabreeze demo laser-interface branch with edits to connect the laser GUI frontend with backend operations to operate the laser.
